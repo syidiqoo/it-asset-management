@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Department / Divisi, mis: IT, HR, Finance. Bisa bertingkat (sub-department)
+model Department {
+  id           Int          @id @default(autoincrement())
+  name         String       @unique
+  parentId     Int?
+  parent       Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children     Department[] @relation("DepartmentHierarchy")
+  canHaveAdmin Boolean      @default(false)
+  users        User[]
+  assets       Asset[]
+  simCards     SimCard[]
+  createdAt    DateTime     @default(now())
+}
+
+// User aplikasi. role: "ADMIN" | "GUEST" | "NON_USER" (non-user tidak bisa login)
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  passwordHash  String
+  name          String
+  role          String    @default("GUEST")
+  departmentId  Int?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  assets        Asset[]   @relation("AssetUser")
+  updatedAssets Asset[]   @relation("AssetUpdatedBy")
+  simCards      SimCard[] @relation("SimCardUser")
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+}
+
+// Kategori inventaris: Laptop, Phone, PC, Printer
+model InventType {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  assets Asset[]
+}
+
+// Data aset IT
+model Asset {
+  id           Int         @id @default(autoincrement())
+  inventTypeId Int
+  inventType   InventType  @relation(fields: [inventTypeId], references: [id])
+  assetName    String
+  code         String      @unique
+  serialNumber String?
+  userId       Int?
+  user         User?       @relation("AssetUser", fields: [userId], references: [id])
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  condition    String      @default("Good")
+  imageUrl     String?
+  recordDate   DateTime    @default(now())
+  docUrl       String?
+  purchaseDate DateTime?
+  updatedById  Int?
+  updatedBy    User?       @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  note         String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// Master paket SIM, mis: Halo+, Enterprise Silver, Enterprise Diamond
+model SimPackage {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  simCards  SimCard[]
+  createdAt DateTime  @default(now())
+}
+
+// Data inventaris SIM Card
+model SimCard {
+  id           Int         @id @default(autoincrement())
+  phoneNumber  String      @unique
+  userId       Int?
+  user         User?       @relation("SimCardUser", fields: [userId], references: [id])
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  packageId    Int?
+  package      SimPackage? @relation(fields: [packageId], references: [id])
+  clsDomestic  Int?
+  clsRoaming   Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// Sesi login (token disimpan di cookie httpOnly)
+model Session {
+  id        String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

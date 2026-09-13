@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm:*)",
+      "Shell(if:*)",
+      "Shell(Test-Path:*)",
+      "Shell({:*)",
+      "powershell",
+      "Shell(npx tsc --noEmit)",
+      "Shell(npx tsx tmp-smoke.ts)",
+      "Shell(npx tsx tmp-verify.ts)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
