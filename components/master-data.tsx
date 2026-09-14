@@ -72,10 +72,6 @@ function NameForm({
   );
 }
 
-export function AddNameForm({ action }: { action: NameAction }) {
-  return <NameForm action={action} submitLabel="Tambah" />;
-}
-
 export function EditNameDialog({
   action,
   id,

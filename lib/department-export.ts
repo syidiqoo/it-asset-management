@@ -5,7 +5,7 @@ export const DEPARTMENT_EXPORT_HEADERS = [
   "Boleh Admin",
 ];
 
-export type ExportDepartment = {
+type ExportDepartment = {
   id: number;
   name: string;
   parentId: number | null;

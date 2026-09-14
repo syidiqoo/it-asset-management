@@ -1,6 +1,6 @@
 type ExportRelation = { name: string } | null;
 
-export type ExportAsset = {
+type ExportAsset = {
   inventType: { name: string };
   assetName: string;
   code: string;

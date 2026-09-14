@@ -7,7 +7,7 @@ export const USER_EXPORT_HEADERS = [
   "Password",
 ];
 
-export type ExportUser = {
+type ExportUser = {
   id: number;
   name: string;
   username: string;

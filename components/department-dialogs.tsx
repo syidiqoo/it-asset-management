@@ -25,7 +25,7 @@ type DepartmentAction = (
   formData: FormData
 ) => Promise<ActionState>;
 
-export type DepartmentOption = {
+type DepartmentOption = {
   id: number;
   name: string;
   parentId: number | null;

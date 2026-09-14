@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, Loader2, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { AssetRow } from "@/lib/asset-list";
-import { CONDITION_BADGE } from "@/lib/constants";
+import { CONDITION_BADGE, PAGE_SIZE } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
-import { DeleteAssetButton } from "@/components/delete-asset-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,81 +19,31 @@ import {
 } from "@/components/ui/table";
 
 type AssetTableProps = {
-  initialAssets: AssetRow[];
+  assets: AssetRow[];
   total: number;
-  isAdmin: boolean;
+  page: number;
   query: string;
   departmentPaths: Record<number, string>;
 };
 
-type AssetsResponse = {
-  assets: AssetRow[];
-  total: number;
-  hasMore: boolean;
-};
-
 export function AssetTable({
-  initialAssets,
+  assets,
   total,
-  isAdmin,
+  page,
   query,
   departmentPaths,
 }: AssetTableProps) {
-  const [assets, setAssets] = useState(initialAssets);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(initialAssets.length < total);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const router = useRouter();
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const startIndex = (page - 1) * PAGE_SIZE;
+  const from = total === 0 ? 0 : startIndex + 1;
+  const to = startIndex + assets.length;
 
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const inFlightRef = useRef(false);
-
-  const loadMore = useCallback(async () => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    setLoading(true);
-    setError(false);
-
-    const nextPage = page + 1;
-    try {
-      const params = new URLSearchParams(query);
-      params.set("page", String(nextPage));
-      const response = await fetch(`/api/assets?${params.toString()}`, {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Gagal memuat data.");
-
-      const data = (await response.json()) as AssetsResponse;
-      setAssets((prev) => [...prev, ...data.assets]);
-      setPage(nextPage);
-      setHasMore(data.hasMore && data.assets.length > 0);
-    } catch {
-      setError(true);
-      setHasMore(false);
-    } finally {
-      inFlightRef.current = false;
-      setLoading(false);
-    }
-  }, [page, query]);
-
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) void loadMore();
-      },
-      { rootMargin: "300px 0px" }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, loadMore, assets.length]);
-
-  function retry() {
-    setError(false);
-    setHasMore(true);
-    void loadMore();
+  function pageHref(target: number) {
+    const params = new URLSearchParams(query);
+    if (target > 1) params.set("page", String(target));
+    const qs = params.toString();
+    return qs ? `/assets?${qs}` : "/assets";
   }
 
   return (
@@ -115,15 +64,14 @@ export function AssetTable({
             <TableHead>Doc</TableHead>
             <TableHead>Purchase Date</TableHead>
             <TableHead>Updated By</TableHead>
-            <TableHead>Note</TableHead>
-            <TableHead className="pr-4 text-right">Aksi</TableHead>
+            <TableHead className="pr-4">Note</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {assets.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={15}
+                colSpan={14}
                 className="py-10 text-center text-muted-foreground"
               >
                 Tidak ada aset yang cocok.
@@ -131,9 +79,24 @@ export function AssetTable({
             </TableRow>
           ) : (
             assets.map((asset, index) => (
-              <TableRow key={asset.id}>
+              <TableRow
+                key={asset.id}
+                role="link"
+                tabIndex={0}
+                aria-label={`Lihat detail ${asset.assetName}`}
+                className="cursor-pointer focus-visible:bg-accent/60 focus-visible:outline-none"
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("a, button")) return;
+                  router.push(`/assets/${asset.id}`);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  router.push(`/assets/${asset.id}`);
+                }}
+              >
                 <TableCell className="pl-4 text-muted-foreground">
-                  {index + 1}
+                  {startIndex + index + 1}
                 </TableCell>
                 <TableCell>{asset.inventTypeName}</TableCell>
                 <TableCell className="font-medium">
@@ -187,33 +150,11 @@ export function AssetTable({
                 </TableCell>
                 <TableCell>{formatDate(asset.purchaseDate)}</TableCell>
                 <TableCell>{asset.updatedByName ?? "-"}</TableCell>
-                <TableCell className="max-w-48 truncate" title={asset.note ?? ""}>
+                <TableCell
+                  className="max-w-48 truncate pr-4"
+                  title={asset.note ?? ""}
+                >
                   {asset.note ?? "-"}
-                </TableCell>
-                <TableCell className="pr-4">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      render={<Link href={`/assets/${asset.id}`} />}
-                    >
-                      <Eye className="size-4" />
-                      <span className="sr-only">Detail</span>
-                    </Button>
-                    {isAdmin ? (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          render={<Link href={`/assets/${asset.id}/edit`} />}
-                        >
-                          <Pencil className="size-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                        <DeleteAssetButton id={asset.id} name={asset.assetName} />
-                      </>
-                    ) : null}
-                  </div>
                 </TableCell>
               </TableRow>
             ))
@@ -221,29 +162,59 @@ export function AssetTable({
         </TableBody>
       </Table>
 
-      <div
-        ref={sentinelRef}
-        className="flex min-h-12 items-center justify-center px-4 py-3 text-sm text-muted-foreground"
-      >
-        {loading ? (
-          <span className="flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin" />
-            Memuat aset...
-          </span>
-        ) : error ? (
-          <span className="flex items-center gap-3">
-            Gagal memuat data.
-            <Button variant="outline" size="sm" onClick={retry}>
-              Coba lagi
+      <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground sm:flex-row">
+        <span>
+          {total === 0
+            ? "Tidak ada aset."
+            : `Menampilkan ${from}–${to} dari ${total} aset.`}
+        </span>
+        <div className="flex items-center gap-1">
+          {page > 1 ? (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              render={
+                <Link href={pageHref(page - 1)} aria-label="Halaman sebelumnya" />
+              }
+            >
+              <ChevronLeft className="size-4" />
             </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              disabled
+              aria-label="Halaman sebelumnya"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+          )}
+
+          <span className="px-2 tabular-nums">
+            Hal {page} / {totalPages}
           </span>
-        ) : hasMore ? (
-          <span>Gulir ke bawah untuk memuat aset lainnya...</span>
-        ) : assets.length > 0 ? (
-          <span>
-            Semua aset sudah ditampilkan ({assets.length} dari {total}).
-          </span>
-        ) : null}
+
+          {page < totalPages ? (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              render={
+                <Link href={pageHref(page + 1)} aria-label="Halaman berikutnya" />
+              }
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              disabled
+              aria-label="Halaman berikutnya"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </>
   );

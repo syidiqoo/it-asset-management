@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { CONDITIONS, PAGE_SIZE } from "@/lib/constants";
 import { parseAssetFilters } from "@/lib/asset-filters";
+import { parsePositiveInt } from "@/lib/params";
 import { withDepartmentsPath } from "@/lib/departments";
 import { assetListInclude, assetListOrderBy, toAssetRow } from "@/lib/asset-list";
 import { filterSelectClass } from "@/lib/ui-classes";
@@ -25,17 +26,24 @@ export default async function AssetsPage({
   const { q, departmentId, typeId, condition, where, query } =
     parseAssetFilters(params);
 
-  const [total, assets, departments, types] = await Promise.all([
+  const requestedPage = parsePositiveInt(params.page) ?? 1;
+
+  const [total, departments, types] = await Promise.all([
     prisma.asset.count({ where }),
-    prisma.asset.findMany({
-      where,
-      include: assetListInclude,
-      orderBy: assetListOrderBy,
-      take: PAGE_SIZE,
-    }),
     prisma.department.findMany({ orderBy: { name: "asc" } }),
     prisma.inventType.findMany({ orderBy: { name: "asc" } }),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const assets = await prisma.asset.findMany({
+    where,
+    include: assetListInclude,
+    orderBy: assetListOrderBy,
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  });
 
   const departmentRows = withDepartmentsPath(departments);
   const departmentPaths: Record<number, string> = {};
@@ -152,10 +160,9 @@ export default async function AssetsPage({
       <Card>
         <CardContent className="px-0">
           <AssetTable
-            key={`${query}|${total}`}
-            initialAssets={assets.map(toAssetRow)}
+            assets={assets.map(toAssetRow)}
             total={total}
-            isAdmin={isAdmin}
+            page={page}
             query={query}
             departmentPaths={departmentPaths}
           />

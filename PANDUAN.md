@@ -1,4 +1,4 @@
-# Panduan Aplikasi IT Asset Management
+# Panduan Aplikasi IT Helpdesk Management
 
 Panduan singkat untuk memakai aplikasi: mencatat **aset IT**, **SIM Card**, dan data pendukungnya (user, department, kategori, package).
 
@@ -35,7 +35,7 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 ## 3. Dashboard
 
-- **Banner** dengan gambar tetap (`public/img/banner.jpg`) + sapaan sesuai waktu dan tanggal.
+- **Banner** dengan gambar tetap (`public/img/banner.png`) + sapaan sesuai waktu dan tanggal.
 - **Kartu ringkasan**: Total Aset, Total User, Department, Kategori Inventaris.
 - **Aset per Kategori Inventaris**, **Aset per Department**, **Kondisi Aset**.
 - **Aset Terbaru** (5 aset yang terakhir diperbarui).
@@ -46,6 +46,8 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 - Kolom: `No, Kategori, Asset Name, Code, Serial Number, User, Department, Condition, Image, Date, Doc, Purchase Date, Updated By, Note`.
 - **Cari** (nama/code/serial) dan **filter** (department, kategori, kondisi, termasuk sub-department).
+- **Pagination**: data ditampilkan **100 baris per halaman**. Gunakan tombol panah kiri/kanan di bawah tabel untuk pindah halaman.
+- Klik baris data untuk membuka **Detail Aset**. Tombol **Edit** dan **Hapus** (Admin) tersedia di halaman detail, bukan di tabel.
 - **Tambah / Edit / Hapus** (Admin): upload **Gambar** (maks 2 MB: PNG/JPG/WEBP/GIF) dan **Dokumen** (maks 5 MB: PDF/DOC/DOCX/XLS/XLSX/TXT).
 - **Detail aset** menampilkan semua info + lampiran.
 - **Export**: tombol **Export** → **CSV** (untuk diolah di Excel) atau **PDF** (untuk cetak/laporan), mengikuti filter yang aktif.
@@ -98,7 +100,7 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 ## 9. Aturan & catatan operasional
 
 - **File upload** disimpan di folder `data/uploads/` (di Docker: volume `uploads`) dan **file lama otomatis dihapus** saat diganti atau asetnya dihapus.
-- **Banner** memakai gambar tetap `public/img/banner.jpg` (tidak diubah dari aplikasi).
+- **Banner** memakai gambar tetap `public/img/banner.png` (tidak diubah dari aplikasi).
 - **Reset data**: jalankan ulang `npm run db:seed` (seed bersifat upsert), atau buat database baru lalu `npm run db:deploy` + `npm run db:seed`.
 - **Isi ulang contoh data**: `npm run db:seed` (perhatian: seed menata ulang department ke susunan contoh).
 

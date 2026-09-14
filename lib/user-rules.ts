@@ -1,4 +1,4 @@
-export type RoleDepartment = {
+type RoleDepartment = {
   parentId: number | null;
   canHaveAdmin: boolean;
 };

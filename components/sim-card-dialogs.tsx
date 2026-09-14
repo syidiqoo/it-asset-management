@@ -20,13 +20,13 @@ import {
 
 type SimCardAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
-export type SimUserOption = {
+type SimUserOption = {
   id: number;
   name: string;
   departmentPath: string | null;
 };
 
-export type SimPackageOption = { id: number; name: string };
+type SimPackageOption = { id: number; name: string };
 
 type SimCardValues = {
   id: number;

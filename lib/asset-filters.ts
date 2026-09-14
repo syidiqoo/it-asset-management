@@ -27,8 +27,6 @@ export function parseAssetFilters(params: AssetFilterParams) {
     ...(condition ? { condition } : {}),
   };
 
-  const hasFilter = Boolean(q || departmentId || typeId || condition);
-
   const search = new URLSearchParams();
   if (q) search.set("q", q);
   if (departmentId) search.set("departmentId", String(departmentId));
@@ -41,7 +39,6 @@ export function parseAssetFilters(params: AssetFilterParams) {
     typeId,
     condition,
     where,
-    hasFilter,
     query: search.toString(),
   };
 }

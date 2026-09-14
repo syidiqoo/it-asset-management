@@ -203,7 +203,7 @@ export function Sidebar({ user }: { user: SidebarUser }) {
             <MonitorSmartphone className="size-5" />
           </div>
           <span className="font-heading text-sm font-bold leading-tight tracking-tight">
-            IT Asset
+            IT Helpdesk
             <br />
             Management
           </span>
@@ -267,7 +267,7 @@ export function Sidebar({ user }: { user: SidebarUser }) {
               <MonitorSmartphone className="size-5" />
             </div>
             <span className="font-heading text-sm font-bold tracking-tight">
-              IT Asset Management
+              IT Helpdesk Management
             </span>
           </div>
           <div className="flex items-center gap-1">

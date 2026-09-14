@@ -56,7 +56,7 @@ export function parseCsv(input: string): string[][] {
   return rows;
 }
 
-export function escapeCsvValue(value: string) {
+function escapeCsvValue(value: string) {
   const escaped = value.replace(/"/g, '""');
   return /[",\r\n]/.test(value) ? `"${escaped}"` : escaped;
 }

@@ -130,10 +130,3 @@ export const loginSchema = z.object({
   username: z.string().trim().min(1, "Username dan password wajib diisi."),
   password: z.string().min(1, "Username dan password wajib diisi."),
 });
-
-export type AssetInput = z.infer<typeof assetSchema>;
-export type UserInput = z.infer<typeof userSchema>;
-export type NameInput = z.infer<typeof nameSchema>;
-export type DepartmentInput = z.infer<typeof departmentSchema>;
-export type SimCardInput = z.infer<typeof simCardSchema>;
-export type LoginInput = z.infer<typeof loginSchema>;

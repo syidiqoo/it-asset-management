@@ -10,7 +10,7 @@ export function BannerHero({
   return (
     <div className="relative isolate overflow-hidden rounded-lg border border-border bg-card">
       <Image
-        src="/img/banner.jpg"
+        src="/img/banner.png"
         alt=""
         fill
         priority

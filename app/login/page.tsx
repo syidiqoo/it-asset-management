@@ -29,7 +29,7 @@ export default async function LoginPage() {
             <MonitorSmartphone className="size-6" />
           </div>
           <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">
-            IT Asset Management
+            IT Helpdesk Management
           </h1>
           <p className="text-sm text-muted-foreground">
             Masuk untuk mengelola data aset IT

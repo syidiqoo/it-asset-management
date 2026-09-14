@@ -1,4 +1,4 @@
-# Aplikasi IT Asset Management
+# Aplikasi IT Helpdesk Management
 
 Aplikasi web untuk mencatat dan mengelola aset IT kantor (Laptop, Phone, PC, Printer).
 
@@ -10,7 +10,7 @@ Dibangun dengan **Next.js**, **PostgreSQL**, dan **Tailwind CSS + shadcn/ui** un
 
 - **Login** dengan hak akses berbeda: **Admin** (kendali penuh), **Guest** (hanya melihat), dan **Non-user** (tanpa login).
 - **Dashboard**: ringkasan jumlah aset, user, department, kategori inventaris, kondisi, dan aset terbaru.
-- **Data Aset**: tabel lengkap + pencarian, filter (department, kategori, kondisi), dan halaman detail.
+- **Data Aset**: tabel lengkap + pencarian dan filter (department, kategori, kondisi). Tampil **100 baris per halaman** dengan navigasi panah kiri/kanan; klik baris untuk membuka detail serta tombol Edit/Hapus (Admin).
 - **Export data aset** ke **CSV** atau **PDF** (mengikuti pencarian/filter yang sedang aktif).
 - **Import data aset** dari file **CSV** (khusus Admin).
 - **Tambah / Edit / Hapus aset** (khusus Admin) termasuk upload **Gambar** dan **Dokumen**.
@@ -19,7 +19,7 @@ Dibangun dengan **Next.js**, **PostgreSQL**, dan **Tailwind CSS + shadcn/ui** un
 - **User**, **Department**, dan **Kategori Inventaris**.
 - **SIM Card**: inventaris SIM dengan kolom No Handphone, User, Department, Package, CLS Domestic, dan CLS Roaming (CLS = kredit pulsa per bulan).
 - **Package SIM**: kelola daftar paket SIM (contoh: `Halo+`, `Enterprise Silver`, `Enterprise Diamond`).
-- **Banner Dashboard**: gambar banner tetap (`public/img/banner.jpg`).
+- **Banner Dashboard**: gambar banner tetap (`public/img/banner.png`).
 - Kolom **Updated By** terisi otomatis dari user yang sedang login.
 
 Kolom data aset: `No, Kategori Inventaris, Asset Name, Code, Serial Number, User, Department, Condition, Image, Date, Doc, Purchase Date, Updated By, Note`.

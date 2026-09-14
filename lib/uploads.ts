@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-export const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
-export const DOC_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const DOC_MAX_BYTES = 5 * 1024 * 1024;
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 const DOC_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"];
@@ -44,7 +44,7 @@ export type UploadResult =
 // menyajikan berkas public yang ada saat build. File di sini dilayani oleh
 // route `app/uploads/[...path]/route.ts`. Di Docker folder ini di-mount
 // ke volume supaya file tetap ada saat container di-build ulang.
-export const UPLOAD_ROOT = process.env.UPLOAD_DIR
+const UPLOAD_ROOT = process.env.UPLOAD_DIR
   ? path.resolve(process.env.UPLOAD_DIR)
   : path.resolve(process.cwd(), "data", "uploads");
 
@@ -135,7 +135,7 @@ export function resolveUploadPath(relativePath: string) {
   return target;
 }
 
-export async function removeUpload(url: string | null | undefined) {
+async function removeUpload(url: string | null | undefined) {
   if (!url || !url.startsWith("/uploads/")) return;
 
   const target = resolveUploadPath(url.slice("/uploads/".length));

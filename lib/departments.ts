@@ -15,11 +15,11 @@ export type DepartmentWithPath<T extends DepartmentRecord = DepartmentRecord> =
     isSub: boolean;
   };
 
-export function buildDepartmentIndex(departments: DepartmentRecord[]) {
+function buildDepartmentIndex(departments: DepartmentRecord[]) {
   return new Map(departments.map((department) => [department.id, department]));
 }
 
-export function departmentPath(
+function departmentPath(
   department: DepartmentRecord,
   byId: Map<number, DepartmentRecord>
 ) {
@@ -37,7 +37,7 @@ export function departmentPath(
   return parts.join(" > ");
 }
 
-export function departmentDepth(
+function departmentDepth(
   department: DepartmentRecord,
   byId: Map<number, DepartmentRecord>
 ) {
@@ -107,10 +107,6 @@ export function subtreeHeight(
     height = Math.max(height, 1 + subtreeHeight(child.id, departments, visited));
   }
   return height;
-}
-
-export function isSubDepartment(department: DepartmentRecord) {
-  return department.parentId !== null;
 }
 
 // Validasi penempatan sebuah node di struktur department. null = valid.

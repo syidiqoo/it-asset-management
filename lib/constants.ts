@@ -1,10 +1,6 @@
 export const CONDITIONS = ["Good", "Fair", "Damaged", "Under Repair"] as const;
 
-export type Condition = (typeof CONDITIONS)[number];
-
 export const ROLES = ["ADMIN", "GUEST", "NON_USER"] as const;
-
-export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
@@ -43,7 +39,7 @@ export const CONDITION_BADGE: Record<string, BadgeVariant> = {
   "Under Repair": "info",
 };
 
-export const PAGE_SIZE = 10;
+export const PAGE_SIZE = 100;
 
 // Kedalaman maksimal hirarki department (level 1 = department level atas)
 export const MAX_DEPARTMENT_DEPTH = 4;

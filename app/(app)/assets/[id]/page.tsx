@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileText, Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { withDepartmentsPath } from "@/lib/departments";
 import { formatDate } from "@/lib/format";
 import { CONDITION_BADGE } from "@/lib/constants";
+import { AssetImagePreview } from "@/components/asset-image-preview";
 import { DeleteAssetButton } from "@/components/delete-asset-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,22 +66,14 @@ export default async function AssetDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            render={<Link href="/assets" />}
-          >
-            <ArrowLeft className="size-4" />
-            <span className="sr-only">Kembali</span>
-          </Button>
-          <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">
-              {asset.assetName}
-            </h1>
-            <p className="text-sm text-muted-foreground">{asset.code}</p>
-          </div>
-        </div>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          render={<Link href="/assets" />}
+        >
+          <ArrowLeft className="size-4" />
+          <span className="sr-only">Kembali</span>
+        </Button>
 
         {isAdmin ? (
           <div className="flex items-center gap-2">
@@ -101,15 +93,19 @@ export default async function AssetDetailPage({
         ) : null}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Informasi Aset</CardTitle>
           </CardHeader>
           <CardContent>
             <DetailRow label="Kategori Inventaris">{asset.inventType.name}</DetailRow>
-            <DetailRow label="Asset Name">{asset.assetName}</DetailRow>
-            <DetailRow label="Code">{asset.code}</DetailRow>
+            <DetailRow label="Asset Name">
+              <strong className="font-semibold">{asset.assetName}</strong>
+            </DetailRow>
+            <DetailRow label="Code">
+              <strong className="font-semibold">{asset.code}</strong>
+            </DetailRow>
             <DetailRow label="Serial Number">
               {asset.serialNumber ?? "-"}
             </DetailRow>
@@ -137,7 +133,7 @@ export default async function AssetDetailPage({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Lampiran</CardTitle>
           </CardHeader>
@@ -145,39 +141,36 @@ export default async function AssetDetailPage({
             <div>
               <p className="mb-2 text-sm text-muted-foreground">Image</p>
               {asset.imageUrl ? (
-                <Image
+                <AssetImagePreview
                   src={asset.imageUrl}
                   alt={asset.assetName}
-                  width={320}
-                  height={320}
-                  unoptimized
-                  className="h-48 w-full rounded-lg border object-cover"
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Tidak ada gambar.
-                </p>
+                <div className="flex h-80 items-center justify-center rounded-lg border border-dashed bg-muted/30">
+                  <p className="text-sm text-muted-foreground">
+                    Tidak ada gambar.
+                  </p>
+                </div>
               )}
             </div>
 
-            <div>
-              <p className="mb-2 text-sm text-muted-foreground">Doc</p>
-              {asset.docUrl ? (
-                <a
-                  href={asset.docUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-sm underline underline-offset-2"
-                >
-                  <FileText className="size-4" />
-                  Buka dokumen
-                </a>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Tidak ada dokumen.
-                </p>
-              )}
-            </div>
+            {asset.docUrl ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                render={
+                  <a href={asset.docUrl} target="_blank" rel="noreferrer" />
+                }
+              >
+                <FileText className="size-4" />
+                Lihat PDF
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Tidak ada dokumen PDF.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,6 +1,6 @@
-# Dokumentasi Teknis — Aplikasi IT Asset Management
+# Dokumentasi Teknis — Aplikasi IT Helpdesk Management
 
-Dokumen ini menjelaskan **teknologi yang dipakai**, **peta konsep arsitektur Docker**, dan **struktur folder** aplikasi IT Asset Management.
+Dokumen ini menjelaskan **teknologi yang dipakai**, **peta konsep arsitektur Docker**, dan **struktur folder** aplikasi IT Helpdesk Management.
 
 Aplikasi ini adalah web app untuk mencatat dan mengelola aset IT kantor (Laptop, Phone, PC, Printer) dan SIM Card, lengkap dengan login, hak akses, upload gambar/dokumen, serta export & import data.
 
@@ -176,7 +176,7 @@ app-tmp/
 │     └─ migration_lock.toml     # Penanda provider (postgresql)
 │
 ├─ public/                       # Aset statis
-│  └─ img/banner.jpg             # Gambar banner dashboard
+│  └─ img/banner.png             # Gambar banner dashboard
 ├─ data/uploads/                 # Gambar & dokumen aset (di Docker: volume `uploads`)
 │
 ├─ docker/
@@ -200,8 +200,6 @@ app-tmp/
 ├─ PANDUAN.md                    # Panduan pemakaian aplikasi
 └─ DOKUMENTASI.md                # Dokumen ini
 ```
-
-> Catatan: `dev.db` di root adalah sisa dari versi lama (SQLite) dan sudah tidak dipakai — boleh dihapus.
 
 ---
 

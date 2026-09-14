@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 
-export const UNKNOWN_DEPARTMENT_NAME = "Unknown";
-export const UNKNOWN_USER_NAME = "Unknown";
-export const UNKNOWN_USERNAME = "unknown";
-export const UNKNOWN_INVENT_TYPE_NAME = "Unknown";
+const UNKNOWN_DEPARTMENT_NAME = "Unknown";
+const UNKNOWN_USER_NAME = "Unknown";
+const UNKNOWN_USERNAME = "unknown";
+const UNKNOWN_INVENT_TYPE_NAME = "Unknown";
 
 // Pastikan department, user, dan kategori "Unknown" ada. Dipakai sebagai
 // fallback saat import CSV menemukan data user/department/kategori yang tidak

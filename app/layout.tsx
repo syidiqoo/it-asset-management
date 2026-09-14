@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IT Asset Management",
+  title: "IT Helpdesk Management",
   description: "Aplikasi pencatatan dan pengelolaan aset IT",
 };
 
