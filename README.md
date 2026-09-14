@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mencatat dan mengelola aset IT kantor (Laptop, Phone, PC, Printer).
 
-Dibangun dengan **Next.js**, **PostgreSQL** (mis. Neon / Vercel Postgres), **Vercel Blob** untuk penyimpanan file, dan **Tailwind CSS + shadcn/ui** untuk tampilan.
+Dibangun dengan **Next.js**, **PostgreSQL**, dan **Tailwind CSS + shadcn/ui** untuk tampilan. Dijalankan di server sendiri memakai **Docker**.
 
 ---
 
@@ -56,7 +56,15 @@ npm install
 
 **2. Siapkan database PostgreSQL**
 
-Aplikasi ini memerlukan database **PostgreSQL**. Cara termudah: buat database gratis di [Neon](https://neon.tech) atau lewat menu **Storage → Postgres** di Vercel, lalu salin connection string-nya.
+Aplikasi ini memerlukan database **PostgreSQL**. Untuk lokal, paling mudah menjalankannya lewat Docker:
+
+```bash
+docker run -d --name itasset-db \
+  -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=itasset \
+  -p 5432:5432 postgres:17-alpine
+```
+
+Untuk deploy di server, Postgres sudah disiapkan otomatis oleh `docker-compose.yml` — lihat [DEPLOY-SERVER.md](./DEPLOY-SERVER.md).
 
 **3. Buat file pengaturan `.env`**
 
@@ -69,10 +77,11 @@ cp .env.example .env
 Isi file `.env`:
 
 ```
-DATABASE_URL="postgresql://user:password@host-pooler.../dbname?sslmode=require"
+DATABASE_URL="postgresql://postgres:secret@localhost:5432/itasset"
+COOKIE_SECURE=false
 ```
 
-> `DATABASE_URL` adalah koneksi ke database PostgreSQL. Gunakan endpoint **pooled** untuk aplikasi. SQLite tidak dipakai lagi karena Vercel tidak menyimpan file lokal.
+> `DATABASE_URL` adalah koneksi ke database PostgreSQL. Untuk lokal contohnya `postgresql://postgres:secret@localhost:5432/itasset`.
 
 **4. Terapkan struktur database & isi data awal**
 
@@ -149,7 +158,7 @@ Aturan role mengikuti level department:
 
 ```bash
 npm run dev         # jalankan aplikasi (mode pengembangan)
-npm run build       # generate client, terapkan migrasi, lalu bangun produksi
+npm run build       # generate Prisma client lalu bangun versi produksi
 npm run db:migrate  # buat/terapkan migrasi saat mengubah schema (dev)
 npm run db:deploy   # terapkan migrasi tanpa membuat migrasi baru (produksi)
 npm run db:seed     # isi ulang data awal
@@ -158,48 +167,23 @@ npm run db:studio   # buka Prisma Studio untuk melihat isi database
 
 ---
 
-## Deploy ke Vercel
+## Deploy di Server Sendiri (Docker)
 
-Aplikasi ini sudah disiapkan untuk Vercel: database memakai **PostgreSQL** dan file upload memakai **Vercel Blob** (Vercel tidak menyimpan file lokal).
+Aplikasi ini dijalankan di server sendiri memakai **Docker Compose**: satu container untuk aplikasi Next.js, satu container untuk **PostgreSQL**, ditambah Docker volume untuk menyimpan file upload.
 
-**1. Buat database Postgres**
+Panduan lengkap ada di **[DEPLOY-SERVER.md](./DEPLOY-SERVER.md)** — mulai dari memasang Docker di Ubuntu 22.04, menyiapkan `.env`, build, seed, backup, sampai HTTPS.
 
-Di dashboard Vercel: **Storage → Create Database → Postgres** (atau pakai [Neon](https://neon.tech)). Salin connection string **pooled**-nya.
-
-**2. Buat Blob store**
-
-Di dashboard Vercel: **Storage → Create Database → Blob**, lalu hubungkan ke project ini untuk Production & Preview. Vercel otomatis mengisi `BLOB_READ_WRITE_TOKEN`.
-
-**3. Set Environment Variables**
-
-Di **Project → Settings → Environment Variables**, tambahkan:
-
-| Nama | Nilai |
-| --- | --- |
-| `DATABASE_URL` | connection string Postgres (pooled) |
-| `DIRECT_URL` | *(opsional)* connection string langsung, dipakai saat migrasi |
-| `BLOB_READ_WRITE_TOKEN` | otomatis terisi setelah Blob store dihubungkan |
-
-> Kalau Vercel hanya menyediakan nama variabel lain (mis. `POSTGRES_PRISMA_URL`), salin nilainya ke `DATABASE_URL`.
-
-**4. Deploy**
-
-Import repo ini di Vercel (atau `vercel` lewat CLI). Saat build, Vercel otomatis menjalankan `prisma generate` dan `prisma migrate deploy` (lihat script `build`), sehingga tabel dibuat di database.
-
-**5. Isi data awal (sekali saja)**
-
-Sebelum seed dijalankan belum ada akun, jadi belum bisa login. Jalankan seed dengan mengarahkan `DATABASE_URL` ke database produksi:
+Ringkasnya, setelah Docker terpasang:
 
 ```bash
-# Windows (cmd)
-set "DATABASE_URL=<connection-string-produksi>"
-npm run db:seed
+cp .env.docker.example .env                  # lalu isi POSTGRES_PASSWORD dll.
+docker compose up -d --build                 # build + jalankan (migrasi otomatis)
+docker compose exec app npx prisma db seed   # isi data awal, sekali saja
 ```
 
-```bash
-# macOS / Linux
-DATABASE_URL="<connection-string-produksi>" npm run db:seed
-```
+Aplikasi bisa diakses di `http://IP-SERVER:3000`.
+
+> Aplikasi ini **tidak lagi memakai Vercel**. Database dan penyimpanan file berjalan sendiri di server, sehingga Vercel Blob dan Vercel Postgres sudah tidak dipakai.
 
 ---
 
@@ -209,6 +193,8 @@ DATABASE_URL="<connection-string-produksi>" npm run db:seed
 app-tmp/
 ├─ app/
 │  ├─ api/assets/export/ # unduhan data aset (CSV/JSON)
+│  ├─ api/health/       # endpoint cek kesehatan (dipakai Docker)
+│  ├─ uploads/          # penyaji file upload (wajib login)
 │  ├─ login/            # halaman login
 │  └─ (app)/            # halaman setelah login (dashboard, aset, user, dll)
 ├─ components/          # komponen tampilan (form, tabel, sidebar, dialog)
@@ -227,12 +213,17 @@ app-tmp/
 │  ├─ schemas.ts        # skema validasi input (Zod)
 │  ├─ types.ts          # tipe state form/action
 │  ├─ ui-classes.ts     # kelas Tailwind yang dipakai berulang
-│  ├─ uploads.ts        # validasi & upload file ke Vercel Blob
+│  ├─ uploads.ts        # validasi & penyimpanan file (folder data/uploads)
 │  └─ utils.ts          # helper `cn` untuk kelas Tailwind
 ├─ prisma/
 │  ├─ migrations/       # migrasi database PostgreSQL
 │  ├─ schema.prisma     # struktur database
 │  └─ seed.ts           # data awal
+├─ data/uploads/        # gambar & dokumen aset (di Docker: volume `uploads`)
+├─ docker/
+│  └─ entrypoint.sh     # jalankan migrasi lalu start aplikasi
+├─ Dockerfile           # image aplikasi
+├─ docker-compose.yml   # aplikasi + PostgreSQL + volume
 └─ proxy.ts             # pengatur akses halaman (harus login dulu)
 ```
 
@@ -240,9 +231,9 @@ app-tmp/
 
 ## Catatan
 
-- **Aturan upload**: gambar maksimal **2 MB** (PNG, JPG, WEBP, GIF) dan dokumen maksimal **4 MB** (PDF, DOC, DOCX, XLS, XLSX, TXT). File yang tidak sesuai akan ditolak. Batas 4 MB mengikuti limit body request Vercel (4.5 MB).
+- **Aturan upload**: gambar maksimal **2 MB** (PNG, JPG, WEBP, GIF) dan dokumen maksimal **5 MB** (PDF, DOC, DOCX, XLS, XLSX, TXT). File yang tidak sesuai akan ditolak.
 - **Password** minimal **8 karakter** saat membuat atau mengganti password user.
-- **Penyimpanan file**: gambar & dokumen disimpan di **Vercel Blob** (bukan folder lokal), dan file lama otomatis dihapus saat diganti atau asetnya dihapus.
+- **Penyimpanan file**: gambar & dokumen disimpan di folder `data/uploads/` (bisa diubah lewat `UPLOAD_DIR`; di Docker memakai volume `uploads`, jadi tidak hilang saat build ulang). File disajikan lewat route `/uploads/...` yang **wajib login**, dan file lama otomatis dihapus saat diganti atau asetnya dihapus.
 - **Login dibatasi** 5 kali gagal per 15 menit untuk mencegah percobaan berulang.
 - **Mengubah struktur database**: edit `prisma/schema.prisma`, lalu jalankan `npm run db:migrate` (lokal) dan `npm run db:deploy` (produksi).
 - **Mereset data**: jalankan ulang `npm run db:seed` (seed bersifat upsert), atau buat database baru lalu jalankan `npm run db:deploy` dan `npm run db:seed`.

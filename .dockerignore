@@ -1,0 +1,31 @@
+node_modules
+.next
+.git
+.gitignore
+.gitattributes
+.commandcode
+.vscode
+
+# Jangan pernah kirim rahasia ke dalam image
+.env
+.env.*
+!.env.example
+
+# Sisa versi lama (SQLite)
+dev.db
+*.db
+*.db-journal
+
+# Berkas lokal
+npm-debug.log*
+yarn-error.log*
+tsconfig.tsbuildinfo
+*.md
+
+# Berkas Docker itu sendiri
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Data lokal (file upload) tidak ikut ke image, dipindah ke volume
+data

@@ -195,10 +195,10 @@ export function Sidebar({ user }: { user: SidebarUser }) {
 
   return (
     <>
-      <aside className="relative hidden w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
         <div className="absolute inset-x-0 top-0 h-0.5 bg-brand-orange" />
 
-        <div className="flex h-16 items-center gap-2.5 border-b px-5">
+        <div className="flex h-16 shrink-0 items-center gap-2.5 border-b px-5">
           <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <MonitorSmartphone className="size-5" />
           </div>
@@ -209,7 +209,7 @@ export function Sidebar({ user }: { user: SidebarUser }) {
           </span>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3">
           {mainItems.map((item) => (
             <DesktopLink key={item.href} item={item} pathname={pathname} />
           ))}
@@ -234,7 +234,7 @@ export function Sidebar({ user }: { user: SidebarUser }) {
           ) : null}
         </nav>
 
-        <div className="border-t p-3">
+        <div className="shrink-0 border-t p-3">
           <div className="mb-2 flex items-start justify-between gap-2 px-2 text-xs">
             <div className="min-w-0">
               <p className="truncate font-semibold">{user.name}</p>

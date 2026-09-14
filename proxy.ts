@@ -16,5 +16,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // `img/` dikecualikan supaya aset statis `public/img` (mis. banner) bisa
+  // dibaca browser maupun Image Optimization milik Next.js. File upload di
+  // `/uploads` TIDAK dikecualikan, jadi tetap wajib login.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|img/).*)"],
 };

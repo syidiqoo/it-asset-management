@@ -1,0 +1,4 @@
+* text=auto
+
+# Skrip shell harus selalu LF, kalau CRLF akan gagal jalan di container Linux.
+*.sh text eol=lf

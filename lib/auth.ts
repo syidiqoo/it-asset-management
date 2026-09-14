@@ -9,6 +9,12 @@ export const SESSION_COOKIE = "session";
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
+// Cookie sesi hanya dikirim lewat HTTPS. Server kantor yang diakses via HTTP
+// perlu set COOKIE_SECURE=false, kalau tidak login akan gagal.
+const useSecureCookie = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === "true"
+  : process.env.NODE_ENV === "production";
+
 export function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
@@ -31,7 +37,7 @@ export async function createSession(userId: number) {
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookie,
   });
 }
 

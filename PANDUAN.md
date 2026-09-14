@@ -46,7 +46,7 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 - Kolom: `No, Kategori, Asset Name, Code, Serial Number, User, Department, Condition, Image, Date, Doc, Purchase Date, Updated By, Note`.
 - **Cari** (nama/code/serial) dan **filter** (department, kategori, kondisi, termasuk sub-department).
-- **Tambah / Edit / Hapus** (Admin): upload **Gambar** (maks 2 MB: PNG/JPG/WEBP/GIF) dan **Dokumen** (maks 4 MB: PDF/DOC/DOCX/XLS/XLSX/TXT).
+- **Tambah / Edit / Hapus** (Admin): upload **Gambar** (maks 2 MB: PNG/JPG/WEBP/GIF) dan **Dokumen** (maks 5 MB: PDF/DOC/DOCX/XLS/XLSX/TXT).
 - **Detail aset** menampilkan semua info + lampiran.
 - **Export**: tombol **Export** → **CSV** (untuk diolah di Excel) atau **PDF** (untuk cetak/laporan), mengikuti filter yang aktif.
 - **Import CSV** (Admin): unggah file CSV. Kolom yang dibutuhkan: `Kategori Inventaris, Asset Name, Code, Serial Number, User (atau Username), Department, Condition, Date, Purchase Date, Note`.
@@ -97,7 +97,7 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 ## 9. Aturan & catatan operasional
 
-- **File upload** disimpan di **Vercel Blob** (bukan folder lokal) dan **file lama otomatis dihapus** saat diganti atau asetnya dihapus.
+- **File upload** disimpan di folder `data/uploads/` (di Docker: volume `uploads`) dan **file lama otomatis dihapus** saat diganti atau asetnya dihapus.
 - **Banner** memakai gambar tetap `public/img/banner.jpg` (tidak diubah dari aplikasi).
 - **Reset data**: jalankan ulang `npm run db:seed` (seed bersifat upsert), atau buat database baru lalu `npm run db:deploy` + `npm run db:seed`.
 - **Isi ulang contoh data**: `npm run db:seed` (perhatian: seed menata ulang department ke susunan contoh).
@@ -106,10 +106,10 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 ## 10. Catatan production
 
-1. **Database & file**: aplikasi memakai **PostgreSQL** (`DATABASE_URL`) dan menyimpan upload di **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`). Vercel tidak menyimpan file lokal, jadi SQLite/folder `public/uploads` tidak dipakai.
-2. **Akses file upload**: blob bersifat *public* dengan URL acak yang sulit ditebak. Bila butuh benar-benar privat (wajib login untuk membuka file), ganti ke **private Blob** + route yang memvalidasi sesi.
+1. **Database & file**: aplikasi memakai **PostgreSQL** dan menyimpan upload di folder `data/uploads/` (di Docker di-mount ke volume `uploads`). Semuanya berjalan di server sendiri.
+2. **Akses file upload**: file disajikan lewat route `/uploads/...` (`app/uploads/[...path]/route.ts`). Pengunjung tanpa sesi diarahkan ke `/login` oleh `proxy.ts`, dan route-nya sendiri juga memvalidasi sesi (balas **401**) sebagai lapisan kedua.
 3. **Cookie sesi basi** sudah ditangani: halaman `/login` memvalidasi sesi ke database, jadi tidak lagi terjadi loop redirect (`/login ↔ /`).
-4. Cookie sesi sudah memakai `secure` + `httpOnly` saat production. Disarankan menambahkan **security headers** (CSP, X-Frame-Options, nosniff).
+4. Cookie sesi memakai `httpOnly`. Flag `secure` mengikuti `COOKIE_SECURE` (default aktif saat production) — set `false` kalau diakses lewat HTTP. Disarankan menambahkan **security headers** (CSP, X-Frame-Options, nosniff).
 5. **Ganti password default** (`admin`/`admin123`) sebelum dipakai sungguhan.
 
-Langkah deploy lengkap ada di **README → Deploy ke Vercel**.
+Langkah deploy lengkap ada di **DEPLOY-SERVER.md**.

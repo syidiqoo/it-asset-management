@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-itasset}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi di file .env}"
+      POSTGRES_DB: "${POSTGRES_DB:-itasset}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-itasset} -d ${POSTGRES_DB:-itasset}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-itasset}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-itasset}"
+      # Set false kalau diakses lewat HTTP biasa (mis. http://10.0.0.5:3000).
+      # Set true kalau sudah memakai HTTPS.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Gambar & dokumen aset disimpan di volume supaya tidak hilang
+      # saat container di-build ulang.
+      - uploads:/app/data/uploads
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  pgdata:
+  uploads:

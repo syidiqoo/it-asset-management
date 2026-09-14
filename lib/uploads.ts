@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
 import path from "node:path";
-import { del, put } from "@vercel/blob";
 
 export const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
-// Vercel membatasi body request Functions maksimal 4.5 MB, jadi dokumen
-// dibatasi 4 MB agar unggahan tidak ditolak oleh platform sebelum diproses.
-export const DOC_MAX_BYTES = 4 * 1024 * 1024;
+export const DOC_MAX_BYTES = 5 * 1024 * 1024;
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 const DOC_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"];
@@ -20,7 +18,7 @@ const DOC_MIME = [
   "text/plain",
 ];
 
-const MIME_BY_EXTENSION: Record<string, string> = {
+const CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -36,13 +34,19 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   ".txt": "text/plain",
 };
 
-const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
-
 export type UploadKind = "image" | "doc";
 
 export type UploadResult =
   | { ok: true; url: string | null }
   | { ok: false; error: string };
+
+// Folder penyimpanan file. Sengaja DI LUAR `public/` karena Next.js hanya
+// menyajikan berkas public yang ada saat build. File di sini dilayani oleh
+// route `app/uploads/[...path]/route.ts`. Di Docker folder ini di-mount
+// ke volume supaya file tetap ada saat container di-build ulang.
+export const UPLOAD_ROOT = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), "data", "uploads");
 
 const SIGNATURES: Record<string, (buffer: Buffer) => boolean> = {
   ".png": (buffer) =>
@@ -59,6 +63,10 @@ const SIGNATURES: Record<string, (buffer: Buffer) => boolean> = {
 
 function extensionOf(fileName: string) {
   return path.extname(fileName).toLowerCase();
+}
+
+export function contentTypeFor(fileName: string) {
+  return CONTENT_TYPES[extensionOf(fileName)] ?? "application/octet-stream";
 }
 
 function matchesSignature(kind: UploadKind, extension: string, buffer: Buffer) {
@@ -80,7 +88,7 @@ export async function saveUpload(
       error:
         kind === "image"
           ? "Ukuran gambar maksimal 2 MB."
-          : "Ukuran dokumen maksimal 4 MB.",
+          : "Ukuran dokumen maksimal 5 MB.",
     };
   }
 
@@ -112,32 +120,28 @@ export async function saveUpload(
   const fileName = `${kind}-${randomUUID()}-${safeName}`;
 
   try {
-    const blob = await put(fileName, buffer, {
-      access: "public",
-      addRandomSuffix: true,
-      contentType:
-        file.type || MIME_BY_EXTENSION[extension] || "application/octet-stream",
-    });
-
-    return { ok: true, url: blob.url };
+    await fs.mkdir(UPLOAD_ROOT, { recursive: true });
+    await fs.writeFile(path.join(UPLOAD_ROOT, fileName), buffer);
   } catch {
-    return { ok: false, error: "Gagal mengunggah file. Silakan coba lagi." };
+    return { ok: false, error: "Gagal menyimpan file. Silakan coba lagi." };
   }
+
+  return { ok: true, url: `/uploads/${fileName}` };
+}
+
+export function resolveUploadPath(relativePath: string) {
+  const target = path.resolve(UPLOAD_ROOT, relativePath);
+  if (!target.startsWith(`${UPLOAD_ROOT}${path.sep}`)) return null;
+  return target;
 }
 
 export async function removeUpload(url: string | null | undefined) {
-  if (!url) return;
+  if (!url || !url.startsWith("/uploads/")) return;
 
-  let host: string;
-  try {
-    host = new URL(url).host;
-  } catch {
-    return;
-  }
+  const target = resolveUploadPath(url.slice("/uploads/".length));
+  if (!target) return;
 
-  if (!host.endsWith(BLOB_HOST_SUFFIX)) return;
-
-  await del(url).catch(() => undefined);
+  await fs.unlink(target).catch(() => undefined);
 }
 
 export async function cleanupUploads(urls: (string | null | undefined)[]) {
