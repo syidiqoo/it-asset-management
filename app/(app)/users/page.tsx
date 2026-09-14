@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import {
@@ -33,6 +33,55 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const SORT_FIELDS = ["name", "department", "role"] as const;
+
+type SortField = (typeof SORT_FIELDS)[number];
+
+function SortHead({
+  label,
+  field,
+  activeField,
+  activeDir,
+  href,
+  className,
+}: {
+  label: string;
+  field: SortField;
+  activeField: SortField;
+  activeDir: "asc" | "desc";
+  href: string;
+  className?: string;
+}) {
+  const active = activeField === field;
+  const Icon = !active
+    ? ArrowUpDown
+    : activeDir === "asc"
+      ? ChevronUp
+      : ChevronDown;
+
+  return (
+    <TableHead
+      className={className}
+      aria-sort={
+        active ? (activeDir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <Link
+        href={href}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        title={`Urutkan berdasarkan ${label}`}
+      >
+        {label}
+        <Icon
+          className={
+            active ? "size-3.5" : "size-3.5 text-muted-foreground/60"
+          }
+        />
+      </Link>
+    </TableHead>
+  );
+}
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -47,6 +96,12 @@ export default async function UsersPage({
   const role = (ROLES as readonly string[]).includes(roleValue) ? roleValue : "";
   const isAdmin = currentUser.role === "ADMIN";
 
+  const sortValue = first(params.sort) ?? "";
+  const sort: SortField = (SORT_FIELDS as readonly string[]).includes(sortValue)
+    ? (sortValue as SortField)
+    : "department";
+  const dir: "asc" | "desc" = first(params.dir) === "desc" ? "desc" : "asc";
+
   const where = {
     ...(q
       ? { OR: [{ name: { contains: q } }, { username: { contains: q } }] }
@@ -59,7 +114,7 @@ export default async function UsersPage({
     prisma.user.findMany({
       where,
       include: { department: true },
-      orderBy: [{ departmentId: "asc" }, { name: "asc" }],
+      orderBy: { name: "asc" },
     }),
     prisma.department.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -67,6 +122,38 @@ export default async function UsersPage({
   const departmentRows = withDepartmentsPath(allDepartments);
   const pathById = new Map(departmentRows.map((item) => [item.id, item.path]));
   const hasFilter = Boolean(q || departmentFilter || role);
+
+  // Urutan Posisi memakai path agar hierarki department tetap mengelompok.
+  const rows = users
+    .map((user) => ({
+      ...user,
+      departmentPath:
+        pathById.get(user.departmentId ?? -1) ?? user.department?.name ?? "",
+    }))
+    .sort((a, b) => {
+      let compared = 0;
+      if (sort === "name") {
+        compared = a.name.localeCompare(b.name);
+      } else if (sort === "role") {
+        const labelA = ROLE_SHORT_LABELS[a.role] ?? a.role;
+        const labelB = ROLE_SHORT_LABELS[b.role] ?? b.role;
+        compared = labelA.localeCompare(labelB);
+      } else {
+        compared = a.departmentPath.localeCompare(b.departmentPath);
+      }
+      if (compared === 0) compared = a.name.localeCompare(b.name);
+      return dir === "desc" ? -compared : compared;
+    });
+
+  function sortHref(field: SortField) {
+    const search = new URLSearchParams();
+    if (q) search.set("q", q);
+    if (departmentFilter) search.set("departmentId", String(departmentFilter));
+    if (role) search.set("role", role);
+    search.set("sort", field);
+    search.set("dir", sort === field && dir === "asc" ? "desc" : "asc");
+    return `/users?${search.toString()}`;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,7 +163,7 @@ export default async function UsersPage({
             User
           </h1>
           <p className="text-sm text-muted-foreground">
-            {users.length} user ditemukan. Posisi dipilih dari struktur di menu
+            {rows.length} user ditemukan. Posisi dipilih dari struktur di menu
             Department.
           </p>
         </div>
@@ -137,6 +224,10 @@ export default async function UsersPage({
               ))}
             </select>
 
+            {/* Urutan kolom ikut dipertahankan saat filter dikirim. */}
+            <input type="hidden" name="sort" value={sort} />
+            <input type="hidden" name="dir" value={dir} />
+
             <Button type="submit" variant="secondary">
               Filter
             </Button>
@@ -160,17 +251,36 @@ export default async function UsersPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Nama</TableHead>
+                <SortHead
+                  label="Nama"
+                  field="name"
+                  activeField={sort}
+                  activeDir={dir}
+                  href={sortHref("name")}
+                  className="pl-4"
+                />
                 <TableHead>Username</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Posisi</TableHead>
+                <SortHead
+                  label="Role"
+                  field="role"
+                  activeField={sort}
+                  activeDir={dir}
+                  href={sortHref("role")}
+                />
+                <SortHead
+                  label="Posisi"
+                  field="department"
+                  activeField={sort}
+                  activeDir={dir}
+                  href={sortHref("department")}
+                />
                 {isAdmin ? (
                   <TableHead className="pr-4 text-right">Aksi</TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.length === 0 ? (
+              {rows.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={isAdmin ? 5 : 4}
@@ -182,7 +292,7 @@ export default async function UsersPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                rows.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="pl-4 font-medium">
                       {user.name}
@@ -199,11 +309,7 @@ export default async function UsersPage({
                         {ROLE_SHORT_LABELS[user.role] ?? user.role}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {pathById.get(user.departmentId ?? -1) ??
-                        user.department?.name ??
-                        "-"}
-                    </TableCell>
+                    <TableCell>{user.departmentPath || "-"}</TableCell>
                     {isAdmin ? (
                       <TableCell className="pr-4">
                         <div className="flex items-center justify-end gap-1">

@@ -1,5 +1,10 @@
+import Link from "next/link";
+import { Search, X } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { first, parsePositiveInt } from "@/lib/params";
+import { descendantIds, withDepartmentsPath } from "@/lib/departments";
+import { filterSelectClass } from "@/lib/ui-classes";
 import {
   AddDepartmentDialog,
   DeleteDepartmentDialog,
@@ -12,9 +17,10 @@ import {
 import { importDepartmentsAction } from "@/lib/actions/department-import";
 import { CsvExportButton } from "@/components/csv-export-button";
 import { CsvImportDialog } from "@/components/csv-import-dialog";
-import { withDepartmentsPath } from "@/lib/departments";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -24,8 +30,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default async function DepartmentsPage() {
+export default async function DepartmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdmin();
+  const params = await searchParams;
+
+  const q = (first(params.q) ?? "").trim();
+  const parentId = parsePositiveInt(params.parentId);
 
   const departments = await prisma.department.findMany({
     include: {
@@ -33,7 +47,24 @@ export default async function DepartmentsPage() {
     },
   });
 
-  const rows = withDepartmentsPath(departments);
+  const allRows = withDepartmentsPath(departments);
+
+  // Filter "induk" menampilkan department terpilih beserta seluruh turunannya.
+  const scope = parentId
+    ? new Set([parentId, ...descendantIds(parentId, departments)])
+    : null;
+  const needle = q.toLowerCase();
+
+  const rows = allRows.filter((row) => {
+    if (scope && !scope.has(row.id)) return false;
+    if (!needle) return true;
+    return (
+      row.name.toLowerCase().includes(needle) ||
+      row.path.toLowerCase().includes(needle)
+    );
+  });
+
+  const hasFilter = Boolean(q || parentId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,6 +73,9 @@ export default async function DepartmentsPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">
             Department
           </h1>
+          <p className="text-sm text-muted-foreground">
+            {rows.length} department ditemukan.
+          </p>
           <p className="text-sm text-muted-foreground">
             Kelola struktur: department, base, dan unit. Nama orang diisi di
             menu User.
@@ -57,10 +91,58 @@ export default async function DepartmentsPage() {
           />
           <AddDepartmentDialog
             action={saveDepartmentAction}
-            departments={rows}
+            departments={allRows}
           />
         </div>
       </div>
+
+      <Card size="sm">
+        <CardContent>
+          <form
+            method="get"
+            action="/departments"
+            className="flex flex-wrap items-end gap-2"
+          >
+            <div className="relative min-w-52 flex-1">
+              <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                name="q"
+                defaultValue={q}
+                placeholder="Cari nama atau path department"
+                className="pl-8"
+              />
+            </div>
+
+            <select
+              name="parentId"
+              defaultValue={parentId ? String(parentId) : ""}
+              className={filterSelectClass}
+            >
+              <option value="">Semua Induk</option>
+              {allRows.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.path}
+                </option>
+              ))}
+            </select>
+
+            <Button type="submit" variant="secondary">
+              Filter
+            </Button>
+
+            {hasFilter ? (
+              <Button
+                type="button"
+                variant="ghost"
+                render={<Link href="/departments" />}
+              >
+                <X className="size-4" />
+                Reset
+              </Button>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="px-0">
@@ -83,7 +165,9 @@ export default async function DepartmentsPage() {
                     colSpan={7}
                     className="py-10 text-center text-muted-foreground"
                   >
-                    Belum ada department.
+                    {hasFilter
+                      ? "Tidak ada department yang cocok."
+                      : "Belum ada department."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -118,7 +202,7 @@ export default async function DepartmentsPage() {
                       <div className="flex items-center justify-end gap-1">
                         <EditDepartmentDialog
                           action={saveDepartmentAction}
-                          departments={rows}
+                          departments={allRows}
                           department={row}
                         />
                         <DeleteDepartmentDialog

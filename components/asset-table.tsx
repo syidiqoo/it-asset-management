@@ -26,6 +26,37 @@ type AssetTableProps = {
   departmentPaths: Record<number, string>;
 };
 
+// Path panjang seperti "Operations > Base Padang > Unit Gunungsitoli" bikin
+// kolom Department sulit dibaca, jadi yang tampil cukup segmen terakhirnya.
+function departmentLabel(
+  asset: AssetRow,
+  departmentPaths: Record<number, string>
+) {
+  const full =
+    (asset.departmentId != null
+      ? departmentPaths[asset.departmentId]
+      : undefined) ??
+    asset.departmentName ??
+    null;
+  if (!full) return null;
+
+  const last = full.split(" > ").pop()?.trim();
+  return { full, short: last && last.length > 0 ? last : full };
+}
+
+function DepartmentCell({
+  asset,
+  departmentPaths,
+}: {
+  asset: AssetRow;
+  departmentPaths: Record<number, string>;
+}) {
+  const label = departmentLabel(asset, departmentPaths);
+  if (!label) return <TableCell>-</TableCell>;
+
+  return <TableCell title={label.full}>{label.short}</TableCell>;
+}
+
 export function AssetTable({
   assets,
   total,
@@ -107,13 +138,10 @@ export function AssetTable({
                 <TableCell>{asset.code}</TableCell>
                 <TableCell>{asset.serialNumber ?? "-"}</TableCell>
                 <TableCell>{asset.userName ?? "-"}</TableCell>
-                <TableCell>
-                  {(asset.departmentId != null
-                    ? departmentPaths[asset.departmentId]
-                    : undefined) ??
-                    asset.departmentName ??
-                    "-"}
-                </TableCell>
+                <DepartmentCell
+                  asset={asset}
+                  departmentPaths={departmentPaths}
+                />
                 <TableCell>
                   <Badge variant={CONDITION_BADGE[asset.condition] ?? "secondary"}>
                     {asset.condition}
