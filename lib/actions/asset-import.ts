@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { CONDITIONS } from "@/lib/constants";
 import { parseCsv } from "@/lib/csv";
 import { withDepartmentsPath } from "@/lib/departments";
+import { getUnknownRefs } from "@/lib/unknown";
 import type { AssetImportState, ImportRowError } from "@/lib/types";
 
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
@@ -51,6 +52,7 @@ type Candidate = {
   recordDate: Date;
   purchaseDate: Date | null;
   note: string | null;
+  unknown: boolean;
 };
 
 type ParseResult =
@@ -126,6 +128,11 @@ export async function importAssetsAction(
 ): Promise<AssetImportState> {
   const admin = await requireAdmin();
 
+  // Kalau dicentang, baris dengan Code yang sudah ada akan meng-update aset itu
+  // (bukan dianggap error).
+  const updateExisting = formData.get("updateExisting") === "true";
+  const existingByCode = new Map<string, number>();
+
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Pilih file CSV terlebih dahulu." };
@@ -162,22 +169,19 @@ export async function importAssetsAction(
   });
 
   const requiredColumns = [
-    { key: "inventType" as const, label: "Kategori Inventaris" },
     { key: "assetName" as const, label: "Asset Name" },
     { key: "code" as const, label: "Code" },
-    { key: "department" as const, label: "Department" },
   ];
   const missingColumns = requiredColumns
     .filter(({ key }) => !columnIndex.has(key))
     .map(({ label }) => label);
-  if (!columnIndex.has("user") && !columnIndex.has("username")) {
-    missingColumns.push("User / Username");
-  }
   if (missingColumns.length > 0) {
     return {
       error: `Kolom wajib tidak ditemukan: ${missingColumns.join(", ")}.`,
     };
   }
+
+  const unknownRefs = await getUnknownRefs();
 
   const [departments, types, users] = await Promise.all([
     prisma.department.findMany({
@@ -225,22 +229,19 @@ export async function importAssetsAction(
     const fail = (message: string): ParseResult => ({ ok: false, line, message });
 
     const typeName = get(cells, "inventType");
-    const type = typeName ? typeByName.get(typeName.toLowerCase()) : undefined;
-    if (!type) {
-      return fail(`Kategori inventaris "${typeName || "(kosong)"}" tidak ditemukan`);
-    }
+    const matchedType = typeName
+      ? typeByName.get(typeName.toLowerCase())
+      : undefined;
+    const inventTypeId = matchedType
+      ? matchedType.id
+      : unknownRefs.inventType.id;
 
     const departmentValue = get(cells, "department");
     const departmentKey = normalizeDepartmentKey(departmentValue);
-    const department = departmentValue
+    const matchedDepartment = departmentValue
       ? (departmentByPath.get(departmentKey) ??
         departmentByName.get(departmentKey))
       : undefined;
-    if (!department) {
-      return fail(
-        `Department "${departmentValue || "(kosong)"}" tidak ditemukan`
-      );
-    }
 
     const assetName = get(cells, "assetName");
     if (!assetName) return fail("Asset Name wajib diisi");
@@ -250,23 +251,31 @@ export async function importAssetsAction(
 
     const username = get(cells, "username");
     const userName = get(cells, "user");
-    let user: UserOption | undefined;
+    let matchedUser: UserOption | undefined;
     if (username) {
-      user = userByUsername.get(username.toLowerCase());
-      if (!user) return fail(`Username "${username}" tidak ditemukan`);
+      matchedUser = userByUsername.get(username.toLowerCase());
     } else if (userName) {
       const matches = usersByName.get(userName.toLowerCase()) ?? [];
-      if (matches.length === 0) return fail(`User "${userName}" tidak ditemukan`);
-      if (matches.length > 1) {
-        return fail(`User "${userName}" lebih dari satu, isi kolom Username`);
-      }
-      user = matches[0];
-    } else {
-      return fail("User / Username wajib diisi");
+      matchedUser = matches.length === 1 ? matches[0] : undefined;
     }
 
-    if (user.departmentId !== department.id) {
-      return fail("User yang dipilih bukan anggota department tersebut");
+    // Kategori/user/department yang tidak cocok (tidak ditemukan, ambigu, atau
+    // bukan anggota department) tidak menggagalkan import. Baris seperti itu
+    // diberi label "Unknown" agar bisa dibersihkan belakangan.
+    let departmentId: number;
+    let userId: number;
+    let unknown = !matchedType;
+    if (
+      matchedDepartment &&
+      matchedUser &&
+      matchedUser.departmentId === matchedDepartment.id
+    ) {
+      departmentId = matchedDepartment.id;
+      userId = matchedUser.id;
+    } else {
+      departmentId = unknownRefs.department.id;
+      userId = unknownRefs.user.id;
+      unknown = true;
     }
 
     const conditionValue = get(cells, "condition");
@@ -296,16 +305,17 @@ export async function importAssetsAction(
       ok: true,
       candidate: {
         line,
-        inventTypeId: type.id,
+        inventTypeId,
         assetName,
         code,
         serialNumber: get(cells, "serialNumber") || null,
-        departmentId: department.id,
-        userId: user.id,
+        departmentId,
+        userId,
         condition,
         recordDate,
         purchaseDate,
         note: get(cells, "note") || null,
+        unknown,
       },
     };
   }
@@ -322,15 +332,20 @@ export async function importAssetsAction(
   if (errors.length === 0 && candidates.length > 0) {
     const existing = await prisma.asset.findMany({
       where: { code: { in: candidates.map((item) => item.code) } },
-      select: { code: true },
+      select: { id: true, code: true },
     });
-    const existingCodes = new Set(existing.map((item) => item.code.toLowerCase()));
-    for (const candidate of candidates) {
-      if (existingCodes.has(candidate.code.toLowerCase())) {
-        errors.push({
-          line: candidate.line,
-          message: `Code "${candidate.code}" sudah dipakai aset lain`,
-        });
+    for (const item of existing) {
+      existingByCode.set(item.code.toLowerCase(), item.id);
+    }
+
+    if (!updateExisting) {
+      for (const candidate of candidates) {
+        if (existingByCode.has(candidate.code.toLowerCase())) {
+          errors.push({
+            line: candidate.line,
+            message: `Code "${candidate.code}" sudah dipakai aset lain`,
+          });
+        }
       }
     }
   }
@@ -354,29 +369,42 @@ export async function importAssetsAction(
 
   try {
     await prisma.$transaction(
-      candidates.map((candidate) =>
-        prisma.asset.create({
-          data: {
-            inventTypeId: candidate.inventTypeId,
-            assetName: candidate.assetName,
-            code: candidate.code,
-            serialNumber: candidate.serialNumber,
-            userId: candidate.userId,
-            departmentId: candidate.departmentId,
-            condition: candidate.condition,
-            recordDate: candidate.recordDate,
-            purchaseDate: candidate.purchaseDate,
-            note: candidate.note,
-            updatedById: admin.id,
-          },
-        })
-      )
+      candidates.map((candidate) => {
+        const data = {
+          inventTypeId: candidate.inventTypeId,
+          assetName: candidate.assetName,
+          code: candidate.code,
+          serialNumber: candidate.serialNumber,
+          userId: candidate.userId,
+          departmentId: candidate.departmentId,
+          condition: candidate.condition,
+          recordDate: candidate.recordDate,
+          purchaseDate: candidate.purchaseDate,
+          note: candidate.note,
+          updatedById: admin.id,
+        };
+
+        const existingId = existingByCode.get(candidate.code.toLowerCase());
+        return existingId
+          ? prisma.asset.update({ where: { id: existingId }, data })
+          : prisma.asset.create({ data });
+      })
     );
   } catch {
     return { error: "Gagal menyimpan data. Tidak ada aset yang diimpor." };
   }
 
+  const updatedCount = candidates.filter((candidate) =>
+    existingByCode.has(candidate.code.toLowerCase())
+  ).length;
+  const unknownCount = candidates.filter((candidate) => candidate.unknown).length;
+
   revalidatePath("/assets");
   revalidatePath("/");
-  return { success: true, imported: candidates.length };
+  return {
+    success: true,
+    imported: candidates.length - updatedCount,
+    ...(updatedCount > 0 ? { updated: updatedCount } : {}),
+    ...(unknownCount > 0 ? { unknownCount } : {}),
+  };
 }

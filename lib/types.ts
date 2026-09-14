@@ -13,7 +13,12 @@ export type ImportRowError = {
   message: string;
 };
 
-export type AssetImportState = ActionState & {
+export type CsvImportState = ActionState & {
   imported?: number;
+  updated?: number;
   rowErrors?: ImportRowError[];
+};
+
+export type AssetImportState = CsvImportState & {
+  unknownCount?: number;
 };

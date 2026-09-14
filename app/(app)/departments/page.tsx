@@ -9,6 +9,9 @@ import {
   deleteDepartmentAction,
   saveDepartmentAction,
 } from "@/lib/actions/departments";
+import { importDepartmentsAction } from "@/lib/actions/department-import";
+import { CsvExportButton } from "@/components/csv-export-button";
+import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { withDepartmentsPath } from "@/lib/departments";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,10 +47,19 @@ export default async function DepartmentsPage() {
             menu User.
           </p>
         </div>
-        <AddDepartmentDialog
-          action={saveDepartmentAction}
-          departments={rows}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <CsvExportButton href="/api/departments/export" />
+          <CsvImportDialog
+            action={importDepartmentsAction}
+            title="Import Department (CSV)"
+            description="Baris dengan ID akan diperbarui; baris tanpa ID akan dibuat baru."
+            columnsHint="Kolom: ID, Nama, Induk, Boleh Admin. Isi Induk dengan path lengkap, mis. Operations > Base."
+          />
+          <AddDepartmentDialog
+            action={saveDepartmentAction}
+            departments={rows}
+          />
+        </div>
       </div>
 
       <Card>

@@ -48,3 +48,6 @@ next-env.d.ts
 
 # data lokal (gambar & dokumen hasil upload)
 /data
+
+# data contoh/uji import (berisi data asli, jangan ikut di-commit)
+/contoh-import

@@ -55,7 +55,7 @@ export const assetSchema = z.object({
 export const userSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, "Nama wajib diisi"),
-  username: z.string().trim().min(3, "Username minimal 3 karakter"),
+  username: optionalTrimmedString,
   password: z.string().optional(),
   role: z.enum(ROLES),
   departmentId: positiveInt("Department wajib dipilih"),

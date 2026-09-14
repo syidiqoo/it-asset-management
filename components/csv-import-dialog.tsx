@@ -1,10 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
-import { importAssetsAction } from "@/lib/actions/asset-import";
+import { AlertCircle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import type { CsvImportState } from "@/lib/types";
 import { fileClass } from "@/lib/ui-classes";
-import type { AssetImportState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,18 +16,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-function ImportForm() {
-  const [state, formAction, pending] = useActionState<AssetImportState, FormData>(
-    importAssetsAction,
+type ImportAction = (
+  state: CsvImportState,
+  formData: FormData
+) => Promise<CsvImportState>;
+
+function ImportForm({
+  action,
+  columnsHint,
+}: {
+  action: ImportAction;
+  columnsHint: string;
+}) {
+  const [state, formAction, pending] = useActionState<CsvImportState, FormData>(
+    action,
     {}
   );
   const formRef = useRef<HTMLFormElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state.success) {
-      formRef.current?.reset();
-    }
+    if (state.success) formRef.current?.reset();
   }, [state.success]);
 
   return (
@@ -37,19 +45,8 @@ function ImportForm() {
         <div className="flex items-start gap-2 rounded-md bg-success/10 px-3 py-2 text-sm text-success">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
           <span>
-            {state.imported ?? 0} aset ditambahkan
-            {state.updated ? `, ${state.updated} aset diperbarui` : ""}.
-          </span>
-        </div>
-      ) : null}
-
-      {state.success && state.unknownCount ? (
-        <div className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2 text-sm text-warning">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>
-            {state.unknownCount} baris diberi label &quot;Unknown&quot; karena
-            user/department tidak cocok. Buka Data Aset lalu filter Department:
-            Unknown untuk memperbaikinya.
+            {state.imported ?? 0} data ditambahkan
+            {state.updated ? `, ${state.updated} data diperbarui` : ""}.
           </span>
         </div>
       ) : null}
@@ -96,30 +93,9 @@ function ImportForm() {
             setFileName(event.target.files?.[0]?.name ?? null)
           }
         />
-        {fileName && !state.success ? (
-          <p className="text-xs text-muted-foreground">File: {fileName}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Kolom: Kategori Inventaris, Asset Name, Code, Serial Number, User
-            (atau Username), Department, Condition, Date, Purchase Date, Note.
-          </p>
-        )}
-
-        <label className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
-          <input
-            type="checkbox"
-            name="updateExisting"
-            value="true"
-            className="mt-0.5 size-4 rounded border-input accent-primary"
-          />
-          <span>
-            Update aset yang sudah ada (berdasarkan Code)
-            <span className="block text-xs text-muted-foreground">
-              Kalau dicentang, baris dengan Code yang sudah terdaftar akan
-              memperbarui aset itu — gambar &amp; dokumen lama tetap disimpan.
-            </span>
-          </span>
-        </label>
+        <p className="text-xs text-muted-foreground">
+          {fileName ? `File: ${fileName}` : columnsHint}
+        </p>
 
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>
@@ -139,7 +115,17 @@ function ImportForm() {
   );
 }
 
-export function AssetImportDialog() {
+export function CsvImportDialog({
+  action,
+  title,
+  description,
+  columnsHint,
+}: {
+  action: ImportAction;
+  title: string;
+  description: string;
+  columnsHint: string;
+}) {
   return (
     <Dialog>
       <DialogTrigger render={<Button variant="outline" />}>
@@ -148,13 +134,10 @@ export function AssetImportDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import Data Aset (CSV)</DialogTitle>
-          <DialogDescription>
-            Unggah file CSV. Gunakan menu Export CSV sebagai contoh format kolom
-            yang benar.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <ImportForm />
+        <ImportForm action={action} columnsHint={columnsHint} />
       </DialogContent>
     </Dialog>
   );

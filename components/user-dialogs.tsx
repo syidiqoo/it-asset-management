@@ -88,6 +88,8 @@ function UserForm({
     : role === "NON_USER"
       ? "(opsional untuk non-user)"
       : "";
+  // Non-user tidak bisa login, jadi username tidak perlu ditampilkan.
+  const showUsername = role !== "NON_USER";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -104,16 +106,18 @@ function UserForm({
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="user-username">Username</Label>
-        <Input
-          id="user-username"
-          name="username"
-          defaultValue={user?.username ?? ""}
-          placeholder="budi"
-          required
-        />
-      </div>
+      {showUsername ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="user-username">Username</Label>
+          <Input
+            id="user-username"
+            name="username"
+            defaultValue={user?.username ?? ""}
+            placeholder="budi"
+            required
+          />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="user-department">Posisi</Label>
@@ -249,7 +253,9 @@ export function EditUserDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>{user.username}</DialogDescription>
+          <DialogDescription>
+            {user.role === "NON_USER" ? ROLE_LABELS.NON_USER : user.username}
+          </DialogDescription>
         </DialogHeader>
         <UserForm
           action={action}

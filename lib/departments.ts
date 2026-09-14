@@ -1,3 +1,5 @@
+import { MAX_DEPARTMENT_DEPTH } from "@/lib/constants";
+
 export type DepartmentRecord = {
   id: number;
   name: string;
@@ -109,4 +111,44 @@ export function subtreeHeight(
 
 export function isSubDepartment(department: DepartmentRecord) {
   return department.parentId !== null;
+}
+
+// Validasi penempatan sebuah node di struktur department. null = valid.
+// Dipakai bersama oleh form Department dan import CSV.
+export function validateDepartmentPlacement({
+  id,
+  parentId,
+  departments,
+  maxDepth = MAX_DEPARTMENT_DEPTH,
+}: {
+  id?: number;
+  parentId: number | null;
+  departments: DepartmentRecord[];
+  maxDepth?: number;
+}): string | null {
+  if (parentId === null) return null;
+
+  const parent = departments.find((item) => item.id === parentId);
+  if (!parent) return "Induk department tidak ditemukan.";
+
+  if (id !== undefined) {
+    if (parentId === id) {
+      return "Department tidak bisa menjadi induk dirinya sendiri.";
+    }
+    if (descendantIds(id, departments).includes(parentId)) {
+      return "Induk tidak boleh dipilih dari sub-department di bawahnya.";
+    }
+  }
+
+  const byId = buildDepartmentIndex(departments);
+  const nodeDepth = departmentDepth(parent, byId) + 1;
+  const heightBelow = id !== undefined ? subtreeHeight(id, departments) : 0;
+
+  if (nodeDepth + heightBelow > maxDepth) {
+    return heightBelow > 0
+      ? `Kedalaman maksimal ${maxDepth} level. Node ini akan menempati level ${nodeDepth} dan turunannya sampai level ${nodeDepth + heightBelow}.`
+      : `Kedalaman maksimal ${maxDepth} level. Node ini akan menempati level ${nodeDepth}.`;
+  }
+
+  return null;
 }

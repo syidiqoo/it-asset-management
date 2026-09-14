@@ -18,7 +18,7 @@ export default async function AppLayout({
           department: user.department?.name ?? null,
         }}
       />
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1 overflow-x-clip">
         <div className="mx-auto w-full max-w-7xl p-5 md:p-8 lg:p-10">{children}</div>
       </main>
     </div>

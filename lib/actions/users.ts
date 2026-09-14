@@ -7,7 +7,31 @@ import { hashPassword, requireAdmin } from "@/lib/auth";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants";
 import { parsePositiveInt } from "@/lib/params";
 import { userSchema } from "@/lib/schemas";
+import {
+  usernameBaseFromName,
+  validateUserRoleDepartment,
+} from "@/lib/user-rules";
 import type { ActionState } from "@/lib/types";
+
+// Username untuk non-user dibuat otomatis (mereka tidak bisa login, jadi admin
+// tidak perlu mengisinya). Diambil dari nama, ditambah angka bila sudah dipakai.
+async function generateUsername(name: string) {
+  const base = usernameBaseFromName(name);
+
+  let candidate = base;
+  let suffix = 1;
+  while (
+    await prisma.user.findUnique({
+      where: { username: candidate },
+      select: { id: true },
+    })
+  ) {
+    suffix += 1;
+    candidate = `${base}${suffix}`;
+  }
+
+  return candidate;
+}
 
 export async function saveUserAction(
   _prev: ActionState,
@@ -20,7 +44,7 @@ export async function saveUserAction(
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid." };
   }
 
-  const { name, username, password, role, departmentId } = parsed.data;
+  const { name, password, role, departmentId } = parsed.data;
   const id = parsePositiveInt(parsed.data.id);
 
   const department = await prisma.department.findUnique({
@@ -28,23 +52,25 @@ export async function saveUserAction(
   });
   if (!department) return { error: "Department tidak ditemukan." };
 
-  const isSubDepartment = department.parentId !== null;
+  const roleError = validateUserRoleDepartment(role, department);
+  if (roleError) return { error: roleError };
 
-  if (role === "ADMIN" && !department.canHaveAdmin) {
-    return {
-      error:
-        "Role Admin hanya boleh untuk department yang ditandai boleh ada admin (mis. IT, Management).",
-    };
-  }
-  if (role === "GUEST" && isSubDepartment) {
-    return {
-      error: "Role Guest hanya boleh di department level atas, bukan sub-department.",
-    };
-  }
-  if (role === "NON_USER" && !isSubDepartment) {
-    return {
-      error: "Role Non-user hanya untuk sub-department (mis. Base Jakarta).",
-    };
+  const existing = id ? await prisma.user.findUnique({ where: { id } }) : null;
+  if (id && !existing) return { error: "User tidak ditemukan." };
+
+  // Non-user tidak perlu username: pakai username lama saat edit, atau buat
+  // otomatis saat menambah user baru.
+  let username: string;
+  if (role === "NON_USER") {
+    username =
+      parsed.data.username ??
+      existing?.username ??
+      (await generateUsername(name));
+  } else {
+    username = parsed.data.username ?? "";
+    if (username.length < 3) {
+      return { error: "Username minimal 3 karakter." };
+    }
   }
 
   const duplicate = await prisma.user.findFirst({
@@ -52,10 +78,7 @@ export async function saveUserAction(
   });
   if (duplicate) return { error: "Username sudah dipakai." };
 
-  if (id) {
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (!existing) return { error: "User tidak ditemukan." };
-
+  if (existing) {
     if (existing.role === "ADMIN" && role !== "ADMIN") {
       const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
       if (adminCount <= 1) {
@@ -78,7 +101,7 @@ export async function saveUserAction(
       data.passwordHash = await hashPassword(password);
     }
 
-    await prisma.user.update({ where: { id }, data });
+    await prisma.user.update({ where: { id: existing.id }, data });
   } else {
     let passwordHash: string;
 

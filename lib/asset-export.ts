@@ -5,7 +5,7 @@ export type ExportAsset = {
   assetName: string;
   code: string;
   serialNumber: string | null;
-  user: { name: string; username: string } | null;
+  user: { name: string; username: string; role: string } | null;
   departmentId: number | null;
   department: ExportRelation;
   condition: string;
@@ -48,7 +48,8 @@ export function assetToExportRow(
     asset.code,
     asset.serialNumber ?? "",
     asset.user?.name ?? "",
-    asset.user?.username ?? "",
+    // Non-user tidak bisa login, jadi username-nya tidak perlu ikut diekspor.
+    asset.user?.role === "NON_USER" ? "" : (asset.user?.username ?? ""),
     asset.departmentId
       ? (departmentPaths.get(asset.departmentId) ??
         asset.department?.name ??

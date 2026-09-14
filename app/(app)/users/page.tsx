@@ -17,6 +17,9 @@ import {
   EditUserDialog,
 } from "@/components/user-dialogs";
 import { saveUserAction, deleteUserAction } from "@/lib/actions/users";
+import { importUsersAction } from "@/lib/actions/user-import";
+import { CsvExportButton } from "@/components/csv-export-button";
+import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +81,16 @@ export default async function UsersPage({
           </p>
         </div>
         {isAdmin ? (
-          <AddUserDialog action={saveUserAction} departments={departmentRows} />
+          <div className="flex flex-wrap items-center gap-2">
+            <CsvExportButton href="/api/users/export" />
+            <CsvImportDialog
+              action={importUsersAction}
+              title="Import User (CSV)"
+              description="Baris dengan ID akan diperbarui; baris tanpa ID akan dibuat baru."
+              columnsHint="Kolom: ID, Nama, Username, Role, Posisi, Password. Password wajib untuk role Admin/Guest pada baris baru."
+            />
+            <AddUserDialog action={saveUserAction} departments={departmentRows} />
+          </div>
         ) : null}
       </div>
 
@@ -175,7 +187,13 @@ export default async function UsersPage({
                     <TableCell className="pl-4 font-medium">
                       {user.name}
                     </TableCell>
-                    <TableCell>{user.username}</TableCell>
+                    <TableCell>
+                      {user.role === "NON_USER" ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : (
+                        user.username
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={ROLE_BADGE[user.role] ?? "secondary"}>
                         {ROLE_SHORT_LABELS[user.role] ?? user.role}

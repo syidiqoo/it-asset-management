@@ -5,13 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { parsePositiveInt } from "@/lib/params";
 import { departmentSchema } from "@/lib/schemas";
-import { MAX_DEPARTMENT_DEPTH } from "@/lib/constants";
-import {
-  buildDepartmentIndex,
-  departmentDepth,
-  descendantIds,
-  subtreeHeight,
-} from "@/lib/departments";
+import { validateDepartmentPlacement } from "@/lib/departments";
 import type { ActionState } from "@/lib/types";
 
 function revalidateDepartmentViews() {
@@ -43,37 +37,15 @@ export async function saveDepartmentAction(
   if (duplicate) return { error: "Nama department sudah ada." };
 
   if (parentId !== null) {
-    const parent = await prisma.department.findUnique({ where: { id: parentId } });
-    if (!parent) return { error: "Induk department tidak ditemukan." };
-
     const departments = await prisma.department.findMany({
       select: { id: true, name: true, parentId: true },
     });
-
-    if (id) {
-      if (parentId === id) {
-        return { error: "Department tidak bisa menjadi induk dirinya sendiri." };
-      }
-      if (descendantIds(id, departments).includes(parentId)) {
-        return {
-          error: "Induk tidak boleh dipilih dari sub-department di bawahnya.",
-        };
-      }
-    }
-
-    const byId = buildDepartmentIndex(departments);
-    const parentDepth = departmentDepth(parent, byId);
-    const heightBelow = id ? subtreeHeight(id, departments) : 0;
-    const nodeDepth = parentDepth + 1;
-
-    if (nodeDepth + heightBelow > MAX_DEPARTMENT_DEPTH) {
-      return {
-        error:
-          heightBelow > 0
-            ? `Kedalaman maksimal ${MAX_DEPARTMENT_DEPTH} level. Node ini akan menempati level ${nodeDepth} dan turunannya sampai level ${nodeDepth + heightBelow}.`
-            : `Kedalaman maksimal ${MAX_DEPARTMENT_DEPTH} level. Node ini akan menempati level ${nodeDepth}.`,
-      };
-    }
+    const placementError = validateDepartmentPlacement({
+      id,
+      parentId,
+      departments,
+    });
+    if (placementError) return { error: placementError };
   }
 
   if (id) {

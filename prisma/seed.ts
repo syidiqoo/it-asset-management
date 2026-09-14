@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -23,9 +24,10 @@ const DEPARTMENTS: { name: string; parent?: string; canHaveAdmin?: boolean }[] =
   { name: "Base Padang", parent: "Base" },
   { name: "Tello", parent: "Base Padang" },
   { name: "Gunung Sitoli", parent: "Base Padang" },
+  { name: "Unknown" },
 ];
 
-const INVENT_TYPES = ["Laptop", "Phone", "PC", "Printer"];
+const INVENT_TYPES = ["Laptop", "Phone", "PC", "Printer", "Unknown"];
 
 const SIM_PACKAGES = ["Halo+", "Enterprise Silver", "Enterprise Diamond"];
 
@@ -145,6 +147,18 @@ async function main() {
     });
     userIds[person.username] = user.id;
   }
+
+  await prisma.user.upsert({
+    where: { username: "unknown" },
+    update: {},
+    create: {
+      username: "unknown",
+      name: "Unknown",
+      passwordHash: await bcrypt.hash(randomUUID(), 10),
+      role: "NON_USER",
+      departmentId: departmentIds["Unknown"],
+    },
+  });
 
   const sampleAssets: {
     inventType: string;
@@ -353,7 +367,7 @@ async function main() {
   console.log(`- ${DEPARTMENTS.length} department (termasuk sub-department)`);
   console.log(`- ${INVENT_TYPES.length} kategori inventaris`);
   console.log(
-    `- ${EMPLOYEES.length + PERSONNEL.length + 2} user (admin, guest, staff)`
+    `- ${EMPLOYEES.length + PERSONNEL.length + 3} user (admin, guest, unknown, staff)`
   );
   console.log(`- ${sampleAssets.length} contoh aset`);
   console.log(
