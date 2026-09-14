@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mencatat dan mengelola aset IT kantor (Laptop, Phone, PC, Printer).
 
-Dibangun dengan **Next.js**, **SQLite** (database berupa satu file di komputer), dan **Tailwind CSS + shadcn/ui** untuk tampilan.
+Dibangun dengan **Next.js**, **PostgreSQL** (mis. Neon / Vercel Postgres), **Vercel Blob** untuk penyimpanan file, dan **Tailwind CSS + shadcn/ui** untuk tampilan.
 
 ---
 
@@ -54,7 +54,11 @@ cd "G:\COMMAND CODE\untitled-project\app-tmp"
 npm install
 ```
 
-**2. Buat file pengaturan `.env`**
+**2. Siapkan database PostgreSQL**
+
+Aplikasi ini memerlukan database **PostgreSQL**. Cara termudah: buat database gratis di [Neon](https://neon.tech) atau lewat menu **Storage → Postgres** di Vercel, lalu salin connection string-nya.
+
+**3. Buat file pengaturan `.env`**
 
 Salin `.env.example` menjadi `.env` di folder `app-tmp`:
 
@@ -65,21 +69,16 @@ cp .env.example .env
 Isi file `.env`:
 
 ```
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@host-pooler.../dbname?sslmode=require"
 ```
 
-> `DATABASE_URL` menentukan lokasi file database.
+> `DATABASE_URL` adalah koneksi ke database PostgreSQL. Gunakan endpoint **pooled** untuk aplikasi. SQLite tidak dipakai lagi karena Vercel tidak menyimpan file lokal.
 
-**3. Siapkan database**
-
-```bash
-npm run db:migrate
-```
-
-**4. Isi data awal (akun, department, kategori, contoh aset)**
+**4. Terapkan struktur database & isi data awal**
 
 ```bash
-npm run db:seed
+npm run db:migrate   # terapkan migrasi (mode pengembangan)
+npm run db:seed      # isi akun, department, kategori, contoh aset
 ```
 
 **5. Jalankan aplikasi**
@@ -150,10 +149,56 @@ Aturan role mengikuti level department:
 
 ```bash
 npm run dev         # jalankan aplikasi (mode pengembangan)
-npm run build       # cek & bangun versi produksi
-npm run db:migrate  # terapkan perubahan struktur database
+npm run build       # generate client, terapkan migrasi, lalu bangun produksi
+npm run db:migrate  # buat/terapkan migrasi saat mengubah schema (dev)
+npm run db:deploy   # terapkan migrasi tanpa membuat migrasi baru (produksi)
 npm run db:seed     # isi ulang data awal
 npm run db:studio   # buka Prisma Studio untuk melihat isi database
+```
+
+---
+
+## Deploy ke Vercel
+
+Aplikasi ini sudah disiapkan untuk Vercel: database memakai **PostgreSQL** dan file upload memakai **Vercel Blob** (Vercel tidak menyimpan file lokal).
+
+**1. Buat database Postgres**
+
+Di dashboard Vercel: **Storage → Create Database → Postgres** (atau pakai [Neon](https://neon.tech)). Salin connection string **pooled**-nya.
+
+**2. Buat Blob store**
+
+Di dashboard Vercel: **Storage → Create Database → Blob**, lalu hubungkan ke project ini untuk Production & Preview. Vercel otomatis mengisi `BLOB_READ_WRITE_TOKEN`.
+
+**3. Set Environment Variables**
+
+Di **Project → Settings → Environment Variables**, tambahkan:
+
+| Nama | Nilai |
+| --- | --- |
+| `DATABASE_URL` | connection string Postgres (pooled) |
+| `DIRECT_URL` | *(opsional)* connection string langsung, dipakai saat migrasi |
+| `BLOB_READ_WRITE_TOKEN` | otomatis terisi setelah Blob store dihubungkan |
+
+> Kalau Vercel hanya menyediakan nama variabel lain (mis. `POSTGRES_PRISMA_URL`), salin nilainya ke `DATABASE_URL`.
+
+**4. Deploy**
+
+Import repo ini di Vercel (atau `vercel` lewat CLI). Saat build, Vercel otomatis menjalankan `prisma generate` dan `prisma migrate deploy` (lihat script `build`), sehingga tabel dibuat di database.
+
+**5. Isi data awal (sekali saja)**
+
+Sebelum seed dijalankan belum ada akun, jadi belum bisa login. Jalankan seed dengan mengarahkan `DATABASE_URL` ke database produksi:
+
+```bash
+# Windows (cmd)
+set "DATABASE_URL=<connection-string-produksi>"
+npm run db:seed
+```
+
+```bash
+# macOS / Linux
+DATABASE_URL="<connection-string-produksi>" npm run db:seed
 ```
 
 ---
@@ -177,18 +222,17 @@ app-tmp/
 │  ├─ departments.ts    # helper hirarki department (path, sub-department)
 │  ├─ format.ts         # format tanggal
 │  ├─ params.ts         # parsing parameter URL
-│  ├─ prisma.ts         # koneksi database
+│  ├─ prisma.ts         # koneksi database (Prisma + adapter PostgreSQL)
 │  ├─ rate-limit.ts     # pembatas percobaan login
 │  ├─ schemas.ts        # skema validasi input (Zod)
 │  ├─ types.ts          # tipe state form/action
 │  ├─ ui-classes.ts     # kelas Tailwind yang dipakai berulang
-│  ├─ uploads.ts        # validasi & penyimpanan file
+│  ├─ uploads.ts        # validasi & upload file ke Vercel Blob
 │  └─ utils.ts          # helper `cn` untuk kelas Tailwind
 ├─ prisma/
+│  ├─ migrations/       # migrasi database PostgreSQL
 │  ├─ schema.prisma     # struktur database
 │  └─ seed.ts           # data awal
-├─ public/uploads/      # tempat file gambar & dokumen hasil upload
-├─ dev.db               # file database SQLite
 └─ proxy.ts             # pengatur akses halaman (harus login dulu)
 ```
 
@@ -196,13 +240,12 @@ app-tmp/
 
 ## Catatan
 
-- **Aturan upload**: gambar maksimal **2 MB** (PNG, JPG, WEBP, GIF) dan dokumen maksimal **5 MB** (PDF, DOC, DOCX, XLS, XLSX, TXT). File yang tidak sesuai akan ditolak.
+- **Aturan upload**: gambar maksimal **2 MB** (PNG, JPG, WEBP, GIF) dan dokumen maksimal **4 MB** (PDF, DOC, DOCX, XLS, XLSX, TXT). File yang tidak sesuai akan ditolak. Batas 4 MB mengikuti limit body request Vercel (4.5 MB).
 - **Password** minimal **8 karakter** saat membuat atau mengganti password user.
-- **Akses file**: file di `public/uploads/` hanya dapat dibuka setelah login, dan file lama otomatis dihapus saat diganti atau asetnya dihapus.
+- **Penyimpanan file**: gambar & dokumen disimpan di **Vercel Blob** (bukan folder lokal), dan file lama otomatis dihapus saat diganti atau asetnya dihapus.
 - **Login dibatasi** 5 kali gagal per 15 menit untuk mencegah percobaan berulang.
-- **Mengubah struktur database**: edit `prisma/schema.prisma`, lalu jalankan `npm run db:migrate`.
-- **Mereset data**: hapus file `dev.db`, lalu jalankan ulang `npm run db:migrate` dan `npm run db:seed`.
+- **Mengubah struktur database**: edit `prisma/schema.prisma`, lalu jalankan `npm run db:migrate` (lokal) dan `npm run db:deploy` (produksi).
+- **Mereset data**: jalankan ulang `npm run db:seed` (seed bersifat upsert), atau buat database baru lalu jalankan `npm run db:deploy` dan `npm run db:seed`.
 - **Ganti password admin**: login sebagai admin, buka menu **User**, klik ikon pensil pada user `admin`.
-- File gambar & dokumen disimpan di folder `public/uploads/` dan tidak ikut masuk ke Git.
 - **Export**: tombol **Export** di halaman **Data Aset** menghasilkan berkas **CSV** dan **PDF** sesuai pencarian/filter yang sedang aktif. Export tersedia untuk semua user yang sudah login.
 - **Import CSV** (khusus Admin): unduh contoh format lewat **Export → Export CSV**, lalu isi datanya. Kolom yang dibutuhkan: `Kategori Inventaris, Asset Name, Code, Serial Number, User (atau Username), Department, Condition, Date, Purchase Date, Note`. `Kategori Inventaris`, `Department`, dan `User` harus sudah terdaftar di aplikasi (tidak dibuat otomatis). Header lama (`Invent Type`, `Jenis Inventaris`, `Jenis`) tetap diterima. Kolom `Department` boleh diisi **path lengkap** (mis. `Operations > Base > Base Jakarta`) atau nama department; kolom `User` boleh nama user atau `Username`. `Code` harus unik, `Date`/`Purchase Date` dapat ditulis `YYYY-MM-DD` atau `DD/MM/YYYY`. Jika ada satu baris bermasalah, seluruh import dibatalkan agar data tetap konsisten. Maksimal 1000 baris dan 2 MB per berkas.

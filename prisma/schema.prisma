@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // Department / Divisi, mis: IT, HR, Finance. Bisa bertingkat (sub-department)

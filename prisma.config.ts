@@ -1,5 +1,9 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
+
+// CLI/migrations pakai koneksi langsung (DIRECT_URL) bila tersedia, supaya
+// tidak lewat connection pooler (PgBouncer) yang tidak mendukung migrasi.
+const migrationUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -7,6 +11,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: migrationUrl,
   },
 });

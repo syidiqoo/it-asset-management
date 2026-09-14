@@ -46,7 +46,7 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 - Kolom: `No, Kategori, Asset Name, Code, Serial Number, User, Department, Condition, Image, Date, Doc, Purchase Date, Updated By, Note`.
 - **Cari** (nama/code/serial) dan **filter** (department, kategori, kondisi, termasuk sub-department).
-- **Tambah / Edit / Hapus** (Admin): upload **Gambar** (maks 2 MB: PNG/JPG/WEBP/GIF) dan **Dokumen** (maks 5 MB: PDF/DOC/DOCX/XLS/XLSX/TXT).
+- **Tambah / Edit / Hapus** (Admin): upload **Gambar** (maks 2 MB: PNG/JPG/WEBP/GIF) dan **Dokumen** (maks 4 MB: PDF/DOC/DOCX/XLS/XLSX/TXT).
 - **Detail aset** menampilkan semua info + lampiran.
 - **Export**: tombol **Export** → **CSV** (untuk diolah di Excel) atau **PDF** (untuk cetak/laporan), mengikuti filter yang aktif.
 - **Import CSV** (Admin): unggah file CSV. Kolom yang dibutuhkan: `Kategori Inventaris, Asset Name, Code, Serial Number, User (atau Username), Department, Condition, Date, Purchase Date, Note`.
@@ -97,19 +97,19 @@ Di bagian bawah sidebar ada nama & peran kamu, tombol **ganti tema (terang/gelap
 
 ## 9. Aturan & catatan operasional
 
-- **File upload** disimpan di `public/uploads/` dan **hanya bisa dibuka setelah login**.
-- **File lama** otomatis dihapus saat diganti atau asetnya dihapus.
+- **File upload** disimpan di **Vercel Blob** (bukan folder lokal) dan **file lama otomatis dihapus** saat diganti atau asetnya dihapus.
 - **Banner** memakai gambar tetap `public/img/banner.jpg` (tidak diubah dari aplikasi).
-- **Reset data**: hapus `dev.db`, lalu `npm run db:migrate` + `npm run db:seed`.
+- **Reset data**: jalankan ulang `npm run db:seed` (seed bersifat upsert), atau buat database baru lalu `npm run db:deploy` + `npm run db:seed`.
 - **Isi ulang contoh data**: `npm run db:seed` (perhatian: seed menata ulang department ke susunan contoh).
 
 ---
 
-## 10. Sebelum dipakai di production (penting)
+## 10. Catatan production
 
-1. **File upload saat ini bisa diakses dengan cookie `session` palsu** (middleware hanya memeriksa keberadaan cookie, bukan keabsahannya). Sebaiknya simpan file di luar folder publik dan sajikan lewat route yang memvalidasi sesi. *Ini yang paling perlu dibereskan.*
-2. **Cookie sesi basi bisa menyebabkan loop redirect** (`/login ↔ /`). Perlu penanganan saat sesi tidak ditemukan.
-3. Aktifkan **HTTPS** + cookie `secure`, dan tambahkan **security headers** (CSP, X-Frame-Options, nosniff).
-4. Ganti password default (`admin`/`admin123`) dan set `DATABASE_URL` produksi.
+1. **Database & file**: aplikasi memakai **PostgreSQL** (`DATABASE_URL`) dan menyimpan upload di **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`). Vercel tidak menyimpan file lokal, jadi SQLite/folder `public/uploads` tidak dipakai.
+2. **Akses file upload**: blob bersifat *public* dengan URL acak yang sulit ditebak. Bila butuh benar-benar privat (wajib login untuk membuka file), ganti ke **private Blob** + route yang memvalidasi sesi.
+3. **Cookie sesi basi** sudah ditangani: halaman `/login` memvalidasi sesi ke database, jadi tidak lagi terjadi loop redirect (`/login ↔ /`).
+4. Cookie sesi sudah memakai `secure` + `httpOnly` saat production. Disarankan menambahkan **security headers** (CSP, X-Frame-Options, nosniff).
+5. **Ganti password default** (`admin`/`admin123`) sebelum dipakai sungguhan.
 
-Detail lengkap temuan ada di ringkasan audit.
+Langkah deploy lengkap ada di **README → Deploy ke Vercel**.

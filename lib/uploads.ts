@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
 import path from "node:path";
+import { del, put } from "@vercel/blob";
 
 export const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
-export const DOC_MAX_BYTES = 5 * 1024 * 1024;
+// Vercel membatasi body request Functions maksimal 4.5 MB, jadi dokumen
+// dibatasi 4 MB agar unggahan tidak ditolak oleh platform sebelum diproses.
+export const DOC_MAX_BYTES = 4 * 1024 * 1024;
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 const DOC_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"];
@@ -18,13 +20,29 @@ const DOC_MIME = [
   "text/plain",
 ];
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx":
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".txt": "text/plain",
+};
+
+const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
+
 export type UploadKind = "image" | "doc";
 
 export type UploadResult =
   | { ok: true; url: string | null }
   | { ok: false; error: string };
-
-const UPLOAD_ROOT = path.resolve(process.cwd(), "public", "uploads");
 
 const SIGNATURES: Record<string, (buffer: Buffer) => boolean> = {
   ".png": (buffer) =>
@@ -62,7 +80,7 @@ export async function saveUpload(
       error:
         kind === "image"
           ? "Ukuran gambar maksimal 2 MB."
-          : "Ukuran dokumen maksimal 5 MB.",
+          : "Ukuran dokumen maksimal 4 MB.",
     };
   }
 
@@ -90,22 +108,36 @@ export async function saveUpload(
     return { ok: false, error: "Isi file tidak sesuai dengan formatnya." };
   }
 
-  await fs.mkdir(UPLOAD_ROOT, { recursive: true });
-
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-80);
   const fileName = `${kind}-${randomUUID()}-${safeName}`;
-  await fs.writeFile(path.join(UPLOAD_ROOT, fileName), buffer);
 
-  return { ok: true, url: `/uploads/${fileName}` };
+  try {
+    const blob = await put(fileName, buffer, {
+      access: "public",
+      addRandomSuffix: true,
+      contentType:
+        file.type || MIME_BY_EXTENSION[extension] || "application/octet-stream",
+    });
+
+    return { ok: true, url: blob.url };
+  } catch {
+    return { ok: false, error: "Gagal mengunggah file. Silakan coba lagi." };
+  }
 }
 
 export async function removeUpload(url: string | null | undefined) {
-  if (!url || !url.startsWith("/uploads/")) return;
+  if (!url) return;
 
-  const target = path.resolve(process.cwd(), "public", url.replace(/^\/+/, ""));
-  if (!target.startsWith(`${UPLOAD_ROOT}${path.sep}`)) return;
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    return;
+  }
 
-  await fs.unlink(target).catch(() => undefined);
+  if (!host.endsWith(BLOB_HOST_SUFFIX)) return;
+
+  await del(url).catch(() => undefined);
 }
 
 export async function cleanupUploads(urls: (string | null | undefined)[]) {

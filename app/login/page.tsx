@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { MonitorSmartphone } from "lucide-react";
+import { getCurrentUser, SESSION_COOKIE } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 import {
   Card,
@@ -8,7 +11,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const cookieStore = await cookies();
+
+  // Hanya validasi ke database bila cookie ada, supaya pengunjung baru tetap
+  // langsung melihat form dan cookie sesi basi tidak membuat loop redirect.
+  if (cookieStore.has(SESSION_COOKIE)) {
+    const user = await getCurrentUser();
+    if (user) redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-sm">
